@@ -1,2 +1,1 @@
-# kerala-assembly-map
-Kerala Assembly Map
+# Kerala Legislative Assembly Constituencies Maps
