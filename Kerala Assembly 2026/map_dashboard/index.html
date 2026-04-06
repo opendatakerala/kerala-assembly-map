@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Kerala Legislative Assembly Map — Election 2026</title>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:    #1e3a5f;
+      --navy-dk: #162d4a;
+      --red:     #d93025;
+      --red-dk:  #b02519;
+      --header-h: 54px;
+      --footer-h: 44px;
+    }
+
+    html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
+
+    /* ══ HEADER ══════════════════════════════════════════════════════════════ */
+    #header {
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--navy);
+      color: #fff;
+      z-index: 1000;
+      display: flex; align-items: center; gap: 12px;
+      padding: 0 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.35);
+    }
+    #header img { height: 36px; width: auto; flex-shrink: 0; }
+    #header h1  { font-size: 15px; font-weight: 600; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* ══ MAP ════════════════════════════════════════════════════════════════ */
+    #map {
+      position: fixed;
+      top: var(--header-h); left: 0; right: 0;
+      bottom: var(--footer-h);
+      z-index: 1;
+      background: #e8edf2;
+    }
+
+    /* ══ LOADING ═════════════════════════════════════════════════════════════ */
+    #loading {
+      position: fixed; inset: 0;
+      background: rgba(255,255,255,.93);
+      z-index: 3000;
+      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+    }
+    #loading-logo { height: 48px; opacity: .85; }
+    .spinner {
+      width: 44px; height: 44px;
+      border: 4px solid #dde; border-top-color: var(--navy);
+      border-radius: 50%;
+      animation: spin .75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { font-size: 13px; color: #666; }
+
+    /* ══ REPORT PANEL (right slide-in) ═══════════════════════════════════════ */
+    #report-panel {
+      position: fixed;
+      top: var(--header-h); right: 0;
+      width: 390px; max-width: 100%;
+      bottom: var(--footer-h);
+      background: #fff;
+      z-index: 900;
+      transform: translateX(100%);
+      transition: transform .3s cubic-bezier(.4,0,.2,1);
+      display: flex; flex-direction: column;
+      box-shadow: -4px 0 24px rgba(0,0,0,.18);
+    }
+    #report-panel.open { transform: translateX(0); }
+
+    .panel-head {
+      background: var(--navy); color: #fff;
+      padding: 13px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-shrink: 0;
+    }
+    .panel-head h2 { font-size: 14px; font-weight: 600; }
+    .panel-close {
+      background: none; border: none; color: #fff;
+      font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 4px; line-height: 1;
+    }
+    .panel-close:hover { background: rgba(255,255,255,.2); }
+
+    .panel-body { padding: 16px; overflow-y: auto; flex: 1; }
+
+    .prefill-box {
+      background: #f0f4f9; border-radius: 8px; padding: 12px; margin-bottom: 14px;
+    }
+    .prefill-box .box-label {
+      font-size: 10px; font-weight: 700; color: var(--navy); text-transform: uppercase;
+      letter-spacing: .6px; margin-bottom: 8px;
+    }
+
+    .fg { margin-bottom: 12px; }
+    .fg label {
+      display: block; font-size: 11px; font-weight: 600; color: #555;
+      text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px;
+    }
+    .fg input, .fg textarea {
+      width: 100%; padding: 8px 10px;
+      border: 1px solid #d5d9e0; border-radius: 6px;
+      font-size: 13px; color: #222; font-family: inherit;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .fg input:focus, .fg textarea:focus {
+      outline: none; border-color: var(--navy);
+      box-shadow: 0 0 0 3px rgba(30,58,95,.1);
+    }
+    .fg input[readonly] { background: #f7f9fc; color: #666; cursor: default; }
+    .fg textarea { resize: vertical; min-height: 80px; }
+
+    .req-note { font-size: 11px; color: #888; margin-bottom: 12px; }
+    .req { color: var(--red); }
+    hr.div { border: none; border-top: 1px solid #eee; margin: 14px 0; }
+
+    .submit-btn {
+      width: 100%; padding: 11px 16px;
+      background: var(--navy); color: #fff;
+      border: none; border-radius: 8px;
+      font-size: 13px; font-weight: 600; font-family: inherit;
+      cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: background .2s;
+      margin-top: 6px;
+    }
+    .submit-btn:hover { background: var(--navy-dk); }
+    .submit-btn svg { width: 15px; height: 15px; fill: #fff; flex-shrink: 0; }
+    .submit-note { font-size: 10px; color: #aaa; text-align: center; margin-top: 7px; }
+
+    /* ══ LEAFLET POPUP CUSTOM ════════════════════════════════════════════════ */
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,.18);
+      padding: 0; overflow: hidden;
+    }
+    .leaflet-popup-content { margin: 0; min-width: 220px; max-width: 280px; }
+    .leaflet-popup-close-button { top: 8px !important; right: 10px !important; font-size: 18px !important; color: #888 !important; }
+
+    .pop-head { background: var(--navy); color: #fff; padding: 12px 36px 12px 14px; }
+    .pop-ac   { font-size: 10px; opacity: .75; margin-bottom: 2px; }
+    .pop-name { font-size: 15px; font-weight: 700; line-height: 1.3; }
+    .pop-body { padding: 12px 14px; }
+    .pop-attrs { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+    .pop-attrs td { padding: 3px 0; vertical-align: top; }
+    .pop-attrs td:first-child { font-weight: 600; color: #555; width: 44%; padding-right: 8px; }
+    .pop-attrs td:last-child  { color: #222; }
+    .pop-nil { color: #bbb; font-style: italic; }
+
+    .report-btn {
+      display: block; width: 100%;
+      padding: 8px 12px; background: var(--red); color: #fff;
+      border: none; border-radius: 6px;
+      font-size: 12px; font-weight: 600; font-family: inherit;
+      cursor: pointer; text-align: center; transition: background .2s;
+    }
+    .report-btn:hover { background: var(--red-dk); }
+
+    /* ══ LEGEND ══════════════════════════════════════════════════════════════ */
+    #legend {
+      position: absolute; bottom: 12px; left: 10px;
+      z-index: 800; background: rgba(255,255,255,.93);
+      border-radius: 8px; padding: 10px 13px;
+      box-shadow: 0 2px 10px rgba(0,0,0,.15);
+      font-size: 11px;
+    }
+    .leg-title { font-weight: 700; color: #333; margin-bottom: 7px; font-size: 12px; }
+    .leg-row   { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+    .leg-swatch {
+      width: 22px; height: 12px; border-radius: 3px; flex-shrink: 0;
+    }
+
+    /* ══ DISCLAIMER ══════════════════════════════════════════════════════════ */
+    #disclaimer {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: var(--footer-h);
+      z-index: 1000;
+      background: #f4f6f9;
+      border-top: 1px solid #dde;
+      padding: 0 14px;
+      display: flex; align-items: center;
+      font-size: 10.5px; color: #666; line-height: 1.45;
+    }
+    #disclaimer a { color: var(--navy); text-decoration: none; }
+    #disclaimer a:hover { text-decoration: underline; }
+
+    /* ══ MOBILE ══════════════════════════════════════════════════════════════ */
+    @media (max-width: 640px) {
+      :root { --header-h: 48px; --footer-h: 56px; }
+      #header h1  { font-size: 12px; }
+      #header img { height: 26px; }
+      #report-panel { width: 100%; }
+      #legend { display: none; }
+      #disclaimer { font-size: 9.5px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ LOADING ══════════════════════════════════════════════════════════════ -->
+<div id="loading">
+  <img id="loading-logo"
+    src="https://commons.wikimedia.org/wiki/Special:FilePath/Open_Data_Kerala_logo.svg"
+    alt="Open Data Kerala" onerror="this.style.display='none'">
+  <div class="spinner"></div>
+  <p>Loading Kerala Assembly Map…</p>
+</div>
+
+<!-- ══ HEADER ═══════════════════════════════════════════════════════════════ -->
+<div id="header">
+  <img src="https://commons.wikimedia.org/wiki/Special:FilePath/Open_Data_Kerala_logo.svg"
+       alt="Open Data Kerala" onerror="this.style.display='none'">
+  <h1>Kerala Legislative Assembly Map &mdash; Election 2026</h1>
+</div>
+
+<!-- ══ MAP ══════════════════════════════════════════════════════════════════ -->
+<div id="map">
+  <!-- Legend lives inside #map so it doesn't scroll with the page -->
+  <div id="legend">
+    <div class="leg-title">Legend</div>
+    <div class="leg-row">
+      <div class="leg-swatch" style="background:transparent;border:2.5px solid #111;"></div>
+      <span>Assembly Constituency</span>
+    </div>
+    <div class="leg-row">
+      <div class="leg-swatch" style="background:linear-gradient(90deg,#4e9af1 0%,#7ed321 50%,#f5a623 100%);"></div>
+      <span>Local Self-Government</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══ REPORT PANEL ══════════════════════════════════════════════════════════ -->
+<div id="report-panel" role="dialog" aria-modal="true" aria-label="Report a data error">
+  <div class="panel-head">
+    <h2>⚠&nbsp; Report a Data Error</h2>
+    <button class="panel-close" onclick="closePanel()" aria-label="Close panel">✕</button>
+  </div>
+  <div class="panel-body">
+
+    <div class="prefill-box">
+      <div class="box-label">📍 Location (auto-filled)</div>
+      <div class="fg">
+        <label>LSGI Name</label>
+        <input type="text" id="f-lsgi" readonly placeholder="—">
+      </div>
+      <div class="fg">
+        <label>LSGI Code</label>
+        <input type="text" id="f-code" readonly placeholder="—">
+      </div>
+      <div class="fg">
+        <label>Assembly Constituency</label>
+        <input type="text" id="f-ac" readonly placeholder="—">
+      </div>
+    </div>
+
+    <p class="req-note">Fields marked <span class="req">*</span> are mandatory.</p>
+
+    <div class="fg">
+      <label>Your Name</label>
+      <input type="text" id="f-name" placeholder="Full name" autocomplete="name">
+    </div>
+    <div class="fg">
+      <label>Affiliation</label>
+      <input type="text" id="f-affil" placeholder="Organisation / Institution">
+    </div>
+    <div class="fg">
+      <label>Email <span class="req">*</span></label>
+      <input type="email" id="f-email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="fg">
+      <label>Phone</label>
+      <input type="tel" id="f-phone" placeholder="+91 XXXXX XXXXX" autocomplete="tel">
+    </div>
+
+    <hr class="div">
+
+    <div class="fg">
+      <label>Describe the Issue <span class="req">*</span></label>
+      <textarea id="f-issue" placeholder="What is wrong or missing? Please be as specific as possible…"></textarea>
+    </div>
+    <div class="fg">
+      <label>Supporting Links</label>
+      <textarea id="f-links" style="min-height:60px"
+        placeholder="Paste any reference URLs, gazette links, etc. — one per line"></textarea>
+    </div>
+
+    <button class="submit-btn" onclick="submitReport()">
+      <!-- GitHub mark icon -->
+      <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+        <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+                 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
+                 -.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66
+                 .07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15
+                 -.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0
+                 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56
+                 .82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07
+                 -.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/>
+      </svg>
+      Submit Issue on GitHub
+    </button>
+    <p class="submit-note">You'll be redirected to GitHub to complete the submission. A GitHub account is required.</p>
+  </div>
+</div>
+
+<!-- ══ DISCLAIMER ════════════════════════════════════════════════════════════ -->
+<div id="disclaimer">
+  <span>
+    ⚠ The accuracy or completeness of the data presented on this page cannot be guaranteed.
+    Information has been sourced from CEO Kerala, Gazette notifications, and official party media.
+    Found a mistake? <a href="https://github.com/opendatakerala/kerala-assembly-map/issues/new" target="_blank" rel="noopener">File an issue on GitHub</a>
+    or email <a href="mailto:opendatakerala@gmail.com">opendatakerala@gmail.com</a>.
+  </span>
+</div>
+
+<!-- ══ SCRIPTS ═══════════════════════════════════════════════════════════════ -->
+<script>
+'use strict';
+
+// ── Colour palette – hash LSG_code → consistent colour ───────────────────────
+const PALETTE = [
+  '#4e9af1','#e8a838','#5cb85c','#9b59b6','#e55347',
+  '#1abc9c','#f0892a','#2980b9','#8e44ad','#27ae60',
+  '#16a085','#d35400','#2471a3','#c0392b','#a9cce3',
+  '#52be80','#f8c471','#a569bd','#5dade2','#45b39d',
+  '#f1948a','#7dcea0','#85c1e9','#f0b27a','#82e0aa',
+  '#aab7b8','#6c5ce7','#00cec9','#fd79a8','#fdcb6e'
+];
+
+function lsgiColor(lsgCode) {
+  if (!lsgCode) return '#bfc9ca';
+  let h = 5381;
+  for (let i = 0; i < lsgCode.length; i++) {
+    h = (((h << 5) + h) ^ lsgCode.charCodeAt(i)) >>> 0;
+  }
+  return PALETTE[h % PALETTE.length];
+}
+
+// ── Kerala bounds (WGS84) ─────────────────────────────────────────────────────
+const KERALA_SW = [8.17,  74.85];
+const KERALA_NE = [12.79, 77.65];
+const KERALA_BOUNDS = L.latLngBounds(KERALA_SW, KERALA_NE);
+
+// ── Map init ──────────────────────────────────────────────────────────────────
+const map = L.map('map', {
+  maxBounds:            KERALA_BOUNDS.pad(0.07),
+  maxBoundsViscosity:   1.0,
+  zoomSnap:             0.25,
+  zoomDelta:            0.5,
+  attributionControl:   true,
+});
+
+map.fitBounds(KERALA_BOUNDS);
+
+// After initial fit, lock that zoom as the minimum
+map.once('moveend', function () {
+  map.setMinZoom(Math.floor(map.getZoom() * 4) / 4);
+});
+
+// Re-lock on resize (orientation change on mobile)
+window.addEventListener('resize', () => {
+  const needed = map.getBoundsZoom(KERALA_BOUNDS);
+  if (map.getZoom() < needed) map.fitBounds(KERALA_BOUNDS, { animate: true });
+});
+
+// OSM basemap
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '© <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  maxZoom: 19,
+}).addTo(map);
+
+// ── Global state for popup ────────────────────────────────────────────────────
+let _activeProps = null;
+let _lsgiLayer   = null;
+
+// ── Popup builder ─────────────────────────────────────────────────────────────
+function fv(v) {
+  return (v === null || v === undefined || v === '') ?
+    '<span class="pop-nil">—</span>' : String(v);
+}
+
+function buildPopup(p) {
+  const rows = [
+    ['District',     p['District']],
+    ['Type',         p['Lsgd_Type']],
+    ['English Label',p['English Label']],
+    ['SEC Code',     p['SEC_Kerala_code']],
+    ['LSG Code',     p['LSG_code']],
+    ['Wards',        p['Ward_count']],
+    ['AC No.',       p['AC_NO']],
+    ['PC Name',      p['PC_NAME']],
+    ['PC No.',       p['PC_NO']],
+  ].map(([l,v]) => `<tr><td>${l}</td><td>${fv(v)}</td></tr>`).join('');
+
+  const acName   = fv(p['AC_NAME']);
+  const lsgName  = p['LSGD'] || p['English Label'] || 'Unknown';
+
+  return `
+    <div class="pop-head">
+      <div class="pop-ac">Assembly Constituency: ${acName}</div>
+      <div class="pop-name">${lsgName}</div>
+    </div>
+    <div class="pop-body">
+      <table class="pop-attrs">${rows}</table>
+      <button class="report-btn" onclick="openReport()">⚠ Report Error</button>
+    </div>`;
+}
+
+// ── LSGI layer ────────────────────────────────────────────────────────────────
+function styleLSGI(feat) {
+  return {
+    fillColor:   lsgiColor((feat.properties || {})['LSG_code']),
+    fillOpacity: 0.55,
+    color:       '#fff',
+    weight:      0.7,
+    opacity:     1,
+  };
+}
+
+function onEachLSGI(feat, layer) {
+  const p = feat.properties || {};
+  const lsgName = p['LSGD'] || p['English Label'] || '?';
+  const acName  = p['AC_NAME'] || '—';
+
+  // Hover tooltip
+  layer.bindTooltip(
+    `<strong>${lsgName}</strong><br><small style="color:#aaa">AC: ${acName}</small>`,
+    { sticky: true, direction: 'top', offset: [0, -6] }
+  );
+
+  // Click → popup
+  layer.on('click', function (e) {
+    _activeProps = p;
+    const popup = L.popup({ maxWidth: 300, className: '' })
+      .setLatLng(e.latlng)
+      .setContent(buildPopup(p));
+    popup.openOn(map);
+  });
+
+  // Hover highlight
+  layer.on('mouseover', function () {
+    layer.setStyle({ fillOpacity: 0.78, weight: 1.5, color: '#555' });
+    layer.bringToFront();
+    // keep AC outlines on top
+    if (_acLayer) _acLayer.bringToFront();
+  });
+  layer.on('mouseout', function () {
+    _lsgiLayer.resetStyle(layer);
+  });
+}
+
+// ── AC layer (hollow) ─────────────────────────────────────────────────────────
+let _acLayer = null;
+
+const AC_STYLE = {
+  fillOpacity: 0,
+  color:       '#111',
+  weight:      2.0,
+  opacity:     1,
+};
+
+// ── Load data ─────────────────────────────────────────────────────────────────
+Promise.all([
+  fetch('LSGI_2025.geojson').then(r => { if (!r.ok) throw new Error('LSGI_2025.geojson not found'); return r.json(); }),
+  fetch('KLA_AC_2026.geojson').then(r => { if (!r.ok) throw new Error('KLA_AC_2026.geojson not found'); return r.json(); }),
+]).then(([lsgiData, acData]) => {
+
+  // Add LSGI below
+  _lsgiLayer = L.geoJSON(lsgiData, {
+    style:          styleLSGI,
+    onEachFeature:  onEachLSGI,
+  }).addTo(map);
+
+  // Add AC outlines above (non-interactive so events pass to LSGI)
+  _acLayer = L.geoJSON(acData, {
+    style:       AC_STYLE,
+    interactive: false,
+  }).addTo(map);
+
+  document.getElementById('loading').style.display = 'none';
+
+}).catch(err => {
+  document.getElementById('loading').innerHTML = `
+    <p style="color:#c0392b;font-size:13px;text-align:center;padding:0 24px;">
+      ⚠ Could not load map data.<br><br>
+      <code style="font-size:11px">${err.message}</code><br><br>
+      Make sure <strong>LSGI_2025.geojson</strong> and
+      <strong>KLA_AC_2026.geojson</strong> are in the same folder as this HTML file
+      and being served via a web server (not opened directly from the filesystem).
+    </p>`;
+  console.error(err);
+});
+
+// ── Report Panel ──────────────────────────────────────────────────────────────
+function openReport() {
+  const p = _activeProps || {};
+  map.closePopup();
+  document.getElementById('f-lsgi').value  = p['LSGD'] || p['English Label'] || '';
+  document.getElementById('f-code').value  = p['LSG_code'] || '';
+  document.getElementById('f-ac').value    = p['AC_NAME'] || '';
+  // Clear user-fillable fields
+  ['f-name','f-affil','f-email','f-phone','f-issue','f-links']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  document.getElementById('report-panel').classList.add('open');
+  document.getElementById('f-name').focus();
+}
+
+function closePanel() {
+  document.getElementById('report-panel').classList.remove('open');
+}
+
+function submitReport() {
+  const email = document.getElementById('f-email').value.trim();
+  const issue = document.getElementById('f-issue').value.trim();
+  if (!email) { alert('Please enter your email address — it is mandatory.'); return; }
+  if (!issue) { alert('Please describe the issue.'); return; }
+
+  const lsgi  = document.getElementById('f-lsgi').value;
+  const code  = document.getElementById('f-code').value;
+  const ac    = document.getElementById('f-ac').value;
+  const name  = document.getElementById('f-name').value.trim();
+  const affil = document.getElementById('f-affil').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const links = document.getElementById('f-links').value.trim();
+
+  const title = `Data Error: ${lsgi || ac || 'Unknown location'}`;
+
+  const body = [
+    '## Data Error Report',
+    '',
+    '### 📍 Location',
+    '| Field | Value |',
+    '|---|---|',
+    `| **LSGI Name** | ${lsgi || '—'} |`,
+    `| **LSGI Code** | ${code || '—'} |`,
+    `| **Assembly Constituency** | ${ac || '—'} |`,
+    '',
+    '### 👤 Reporter',
+    '| Field | Value |',
+    '|---|---|',
+    `| **Name** | ${name || '—'} |`,
+    `| **Affiliation** | ${affil || '—'} |`,
+    `| **Email** | ${email} |`,
+    `| **Phone** | ${phone || '—'} |`,
+    '',
+    '### ❗ Issue Description',
+    issue,
+    '',
+    links ? `### 🔗 Supporting Links\n${links}` : '',
+    '',
+    '---',
+    '*Reported via [Kerala Assembly Map 2026](https://opendatakerala.github.io/kerala-assembly-map/)*',
+  ].filter(l => l !== undefined).join('\n');
+
+  const ghUrl = 'https://github.com/opendatakerala/kerala-assembly-map/issues/new'
+    + '?title=' + encodeURIComponent(title)
+    + '&body='  + encodeURIComponent(body)
+    + '&labels=' + encodeURIComponent('data-error,needs-review');
+
+  window.open(ghUrl, '_blank', 'noopener,noreferrer');
+}
+
+// Close panel on Escape key
+document.addEventListener('keydown', function (e) {
+  if (e.key === 'Escape') closePanel();
+});
+</script>
+</body>
+</html>
