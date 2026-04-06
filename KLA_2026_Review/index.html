@@ -3,209 +3,481 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-  <title>Kerala Legislative Assembly Map — Election 2026</title>
-
-  <!-- Leaflet -->
+  <title>Kerala Assembly Map 2026 · Open Data Kerala</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
-
   <style>
+    /* ── Reset & Base ──────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; overflow: hidden; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f4f3ef;
+      color: #1a1a1a;
+    }
 
+    /* ── CSS Variables ─────────────────────────────────────────── */
     :root {
-      --navy:    #1e3a5f;
-      --navy-dk: #162d4a;
-      --red:     #d93025;
-      --red-dk:  #b02519;
-      --header-h: 54px;
-      --footer-h: 44px;
+      --stripe-h:  5px;
+      --header-h:  68px;
+      --sidebar-w: 264px;
+      --footer-h:  42px;
+      --teal:      #0d9e8f;
+      --amber:     #c8921e;
+      --navy:      #1a2e4a;
+      --red:       #d93025;
+      --border:    #e4e3df;
+      --bg:        #f4f3ef;
+      --card:      #ffffff;
+      --shadow-sm: 0 1px 4px rgba(0,0,0,.08);
+      --shadow-md: 0 4px 16px rgba(0,0,0,.12);
     }
 
-    html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; }
-
-    /* ══ HEADER ══════════════════════════════════════════════════════════════ */
-    #header {
+    /* ── Rainbow Stripe ────────────────────────────────────────── */
+    #stripe {
       position: fixed; top: 0; left: 0; right: 0;
-      height: var(--header-h);
-      background: var(--navy);
-      color: #fff;
-      z-index: 1000;
-      display: flex; align-items: center; gap: 12px;
-      padding: 0 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,.35);
+      height: var(--stripe-h);
+      background: linear-gradient(90deg,
+        #e63329 0% 25%,
+        #1b4dbf 25% 50%,
+        #f5a624 50% 75%,
+        #2e8b44 75% 100%
+      );
+      z-index: 2000;
     }
-    #header img { height: 36px; width: auto; flex-shrink: 0; }
-    #header h1  { font-size: 15px; font-weight: 600; letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    /* ══ MAP ════════════════════════════════════════════════════════════════ */
+    /* ── Header ────────────────────────────────────────────────── */
+    #header {
+      position: fixed;
+      top: var(--stripe-h); left: 0; right: 0;
+      height: var(--header-h);
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+      z-index: 1500;
+      display: flex; align-items: center;
+      padding: 0 20px; gap: 14px;
+    }
+
+    #odk-logo {
+      height: 44px; width: auto; flex-shrink: 0;
+      display: block;
+    }
+    #odk-logo-fallback {
+      display: none;
+      width: 44px; height: 44px;
+      background: var(--teal);
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+
+    #header-title { flex: 1; min-width: 0; }
+    .title-eyebrow {
+      font-size: 9.5px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 1px;
+    }
+    .title-main {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--navy);
+      line-height: 1.1;
+      letter-spacing: -.3px;
+    }
+    .title-sub {
+      font-size: 11px;
+      color: var(--amber);
+      font-style: italic;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Mobile sidebar toggle button (hidden on desktop) */
+    #sidebar-toggle {
+      display: none;
+      margin-left: auto;
+      background: none; border: 1px solid var(--border);
+      border-radius: 6px; padding: 6px 10px;
+      font-size: 16px; cursor: pointer; color: var(--navy);
+      flex-shrink: 0;
+    }
+    #sidebar-toggle:hover { background: var(--bg); }
+
+    /* ── Sidebar ───────────────────────────────────────────────── */
+    #sidebar {
+      position: fixed;
+      top: calc(var(--stripe-h) + var(--header-h));
+      left: 0;
+      width: var(--sidebar-w);
+      bottom: var(--footer-h);
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      z-index: 1200;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      transition: transform .3s cubic-bezier(.4,0,.2,1);
+    }
+    #sidebar-inner {
+      flex: 1; overflow-y: auto;
+      padding: 16px;
+    }
+
+    .sidebar-heading {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #888;
+      margin-bottom: 12px;
+    }
+
+    /* Radio group */
+    .radio-group {
+      display: flex; gap: 6px; margin-bottom: 12px;
+    }
+    .radio-label {
+      flex: 1;
+      display: flex; align-items: center; justify-content: center;
+      gap: 6px;
+      padding: 7px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 20px;
+      font-size: 12px; font-weight: 500;
+      cursor: pointer;
+      transition: all .15s;
+      color: #555;
+      user-select: none;
+    }
+    .radio-label input[type="radio"] { display: none; }
+    .radio-label:hover { border-color: var(--teal); color: var(--teal); }
+    .radio-label.active {
+      border-color: var(--teal);
+      background: var(--teal);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* Search box */
+    .search-wrap {
+      position: relative; margin-bottom: 4px;
+    }
+    .search-icon {
+      position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+      font-size: 13px; color: #aaa; pointer-events: none;
+    }
+    #nav-input {
+      width: 100%;
+      padding: 9px 32px 9px 32px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 13px; font-family: inherit;
+      background: var(--bg); color: #1a1a1a;
+      transition: border-color .2s, box-shadow .2s;
+      outline: none;
+    }
+    #nav-input:focus {
+      border-color: var(--teal);
+      background: #fff;
+      box-shadow: 0 0 0 3px rgba(13,158,143,.1);
+    }
+    #nav-input::placeholder { color: #aaa; }
+    #nav-clear {
+      position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+      background: none; border: none;
+      font-size: 14px; color: #aaa;
+      cursor: pointer; padding: 2px 4px;
+      display: none; line-height: 1;
+    }
+    #nav-clear:hover { color: #555; }
+    #nav-clear.visible { display: block; }
+
+    /* Suggestions dropdown */
+    #nav-suggestions {
+      display: none;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: var(--shadow-md);
+      max-height: 220px;
+      overflow-y: auto;
+      margin-top: 4px;
+    }
+    .sugg-item {
+      padding: 9px 13px;
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 1px solid #f0efeb;
+      transition: background .1s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .sugg-item:last-child { border-bottom: none; }
+    .sugg-item:hover, .sugg-item.active { background: #f0faf9; color: var(--teal); }
+    .sugg-item mark {
+      background: none; color: var(--teal); font-weight: 700;
+    }
+    .sugg-empty {
+      padding: 10px 13px; font-size: 12px; color: #aaa; text-align: center;
+    }
+
+    /* Selected chip */
+    #selected-chip {
+      display: none;
+      align-items: center; gap: 6px;
+      margin-top: 8px;
+      padding: 6px 10px;
+      background: #e8f7f5; border: 1px solid #b2e4de;
+      border-radius: 20px; font-size: 12px; color: var(--teal);
+      font-weight: 600;
+    }
+    #selected-chip.visible { display: flex; }
+    #chip-clear {
+      background: none; border: none;
+      cursor: pointer; font-size: 13px; color: var(--teal); padding: 0; line-height: 1;
+    }
+    #chip-clear:hover { color: var(--red); }
+
+    /* Sidebar divider */
+    .sidebar-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+    /* Legend */
+    .legend-row {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 8px; font-size: 12px; color: #555;
+    }
+    .leg-swatch { width: 26px; height: 14px; border-radius: 3px; flex-shrink: 0; }
+    .leg-label  { flex: 1; }
+    .eye-btn {
+      background: none; border: none; cursor: pointer; padding: 3px;
+      color: #aaa; flex-shrink: 0; display: flex; align-items: center;
+      border-radius: 4px; transition: color .15s, background .15s;
+    }
+    .eye-btn:hover { color: var(--teal); background: #f0faf9; }
+    .eye-btn.off   { color: #ccc; }
+    .eye-btn svg   { width: 15px; height: 15px; }
+
+    /* Sidebar footer (feature count etc.) */
+    #sidebar-footer {
+      padding: 12px 16px;
+      border-top: 1px solid var(--border);
+      font-size: 11px; color: #aaa; flex-shrink: 0;
+      line-height: 1.6;
+    }
+
+    /* ── Map ───────────────────────────────────────────────────── */
     #map {
       position: fixed;
-      top: var(--header-h); left: 0; right: 0;
+      top: calc(var(--stripe-h) + var(--header-h));
+      left: var(--sidebar-w);
+      right: 0;
       bottom: var(--footer-h);
       z-index: 1;
       background: #e8edf2;
     }
 
-    /* ══ LOADING ═════════════════════════════════════════════════════════════ */
+    /* ── Leaflet overrides ─────────────────────────────────────── */
+    /* Move controls to right — done via JS zoomControl position */
+    .leaflet-top.leaflet-right { top: 10px; right: 10px; }
+
+    /* Recenter button style */
+    .recenter-btn {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      width: 30px !important; height: 30px !important;
+      font-size: 16px !important;
+      color: #444 !important;
+    }
+    .recenter-btn:hover { color: var(--teal) !important; }
+
+    /* Popup */
+    .leaflet-popup-content-wrapper {
+      border-radius: 10px;
+      box-shadow: var(--shadow-md);
+      padding: 0; overflow: hidden;
+    }
+    .leaflet-popup-content { margin: 0; min-width: 230px; max-width: 290px; }
+    .leaflet-popup-close-button {
+      top: 8px !important; right: 10px !important;
+      font-size: 18px !important; color: rgba(255,255,255,.7) !important;
+    }
+    .leaflet-popup-close-button:hover { color: #fff !important; }
+
+    .pop-head { background: var(--navy); color: #fff; padding: 12px 36px 12px 14px; }
+    .pop-eyebrow { font-size: 10px; opacity: .65; margin-bottom: 2px; letter-spacing: .3px; }
+    .pop-name  { font-size: 15px; font-weight: 700; line-height: 1.3; }
+    .pop-body  { padding: 12px 14px; background: #fff; }
+    .pop-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
+    .pop-table td { padding: 3px 0; vertical-align: top; }
+    .pop-table td:first-child { font-weight: 600; color: #777; width: 42%; padding-right: 8px; }
+    .pop-nil { color: #ccc; font-style: italic; }
+
+    .report-btn {
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+      width: 100%; padding: 8px 12px;
+      background: var(--red); color: #fff;
+      border: none; border-radius: 6px;
+      font-size: 12px; font-weight: 600; font-family: inherit;
+      cursor: pointer; transition: background .15s;
+    }
+    .report-btn:hover { background: #b7261c; }
+
+    /* ── Loading overlay ───────────────────────────────────────── */
     #loading {
       position: fixed; inset: 0;
-      background: rgba(255,255,255,.93);
-      z-index: 3000;
-      display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px;
+      background: rgba(244,243,239,.96);
+      z-index: 9999;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px;
     }
-    #loading-logo { height: 48px; opacity: .85; }
+    #loading-logo { height: 52px; }
     .spinner {
-      width: 44px; height: 44px;
-      border: 4px solid #dde; border-top-color: var(--navy);
-      border-radius: 50%;
-      animation: spin .75s linear infinite;
+      width: 40px; height: 40px;
+      border: 3px solid #ddd; border-top-color: var(--teal);
+      border-radius: 50%; animation: spin .7s linear infinite;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    #loading p { font-size: 13px; color: #666; }
+    #loading p { font-size: 13px; color: #888; }
 
-    /* ══ REPORT PANEL (right slide-in) ═══════════════════════════════════════ */
+    /* ── Report Panel ──────────────────────────────────────────── */
     #report-panel {
       position: fixed;
-      top: var(--header-h); right: 0;
-      width: 390px; max-width: 100%;
+      top: calc(var(--stripe-h) + var(--header-h));
+      right: 0;
+      width: 380px; max-width: 100%;
       bottom: var(--footer-h);
       background: #fff;
-      z-index: 900;
+      z-index: 1300;
       transform: translateX(100%);
       transition: transform .3s cubic-bezier(.4,0,.2,1);
       display: flex; flex-direction: column;
-      box-shadow: -4px 0 24px rgba(0,0,0,.18);
+      box-shadow: -4px 0 24px rgba(0,0,0,.15);
     }
     #report-panel.open { transform: translateX(0); }
 
-    .panel-head {
+    .rp-head {
       background: var(--navy); color: #fff;
       padding: 13px 16px;
       display: flex; align-items: center; justify-content: space-between;
       flex-shrink: 0;
     }
-    .panel-head h2 { font-size: 14px; font-weight: 600; }
-    .panel-close {
-      background: none; border: none; color: #fff;
+    .rp-head h2 { font-size: 14px; font-weight: 600; }
+    .rp-close {
+      background: none; border: none; color: rgba(255,255,255,.7);
       font-size: 18px; cursor: pointer; padding: 4px 8px; border-radius: 4px; line-height: 1;
     }
-    .panel-close:hover { background: rgba(255,255,255,.2); }
+    .rp-close:hover { color: #fff; background: rgba(255,255,255,.15); }
 
-    .panel-body { padding: 16px; overflow-y: auto; flex: 1; }
+    .rp-body { padding: 16px; overflow-y: auto; flex: 1; }
 
     .prefill-box {
-      background: #f0f4f9; border-radius: 8px; padding: 12px; margin-bottom: 14px;
+      background: #f0faf9; border: 1px solid #b2e4de;
+      border-radius: 8px; padding: 12px; margin-bottom: 14px;
     }
-    .prefill-box .box-label {
-      font-size: 10px; font-weight: 700; color: var(--navy); text-transform: uppercase;
-      letter-spacing: .6px; margin-bottom: 8px;
+    .prefill-label {
+      font-size: 10px; font-weight: 700; color: var(--teal);
+      text-transform: uppercase; letter-spacing: .6px; margin-bottom: 8px;
     }
 
-    .fg { margin-bottom: 12px; }
+    .fg { margin-bottom: 11px; }
     .fg label {
-      display: block; font-size: 11px; font-weight: 600; color: #555;
-      text-transform: uppercase; letter-spacing: .5px; margin-bottom: 4px;
+      display: block; font-size: 10.5px; font-weight: 600; color: #666;
+      text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px;
     }
     .fg input, .fg textarea {
       width: 100%; padding: 8px 10px;
-      border: 1px solid #d5d9e0; border-radius: 6px;
-      font-size: 13px; color: #222; font-family: inherit;
-      transition: border-color .2s, box-shadow .2s;
+      border: 1.5px solid var(--border); border-radius: 6px;
+      font-size: 13px; color: #1a1a1a; font-family: inherit;
+      background: var(--bg);
+      transition: border-color .15s, box-shadow .15s; outline: none;
     }
     .fg input:focus, .fg textarea:focus {
-      outline: none; border-color: var(--navy);
-      box-shadow: 0 0 0 3px rgba(30,58,95,.1);
+      border-color: var(--teal); background: #fff;
+      box-shadow: 0 0 0 3px rgba(13,158,143,.1);
     }
-    .fg input[readonly] { background: #f7f9fc; color: #666; cursor: default; }
+    .fg input[readonly] { background: #f7faf9; color: #777; cursor: default; }
     .fg textarea { resize: vertical; min-height: 80px; }
-
-    .req-note { font-size: 11px; color: #888; margin-bottom: 12px; }
     .req { color: var(--red); }
-    hr.div { border: none; border-top: 1px solid #eee; margin: 14px 0; }
+    .req-note { font-size: 11px; color: #aaa; margin-bottom: 12px; }
+    hr.div { border: none; border-top: 1px solid var(--border); margin: 13px 0; }
 
     .submit-btn {
-      width: 100%; padding: 11px 16px;
+      width: 100%; padding: 11px;
       background: var(--navy); color: #fff;
       border: none; border-radius: 8px;
       font-size: 13px; font-weight: 600; font-family: inherit;
       cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
-      transition: background .2s;
-      margin-top: 6px;
+      transition: background .15s; margin-top: 6px;
     }
-    .submit-btn:hover { background: var(--navy-dk); }
+    .submit-btn:hover { background: #243c5a; }
     .submit-btn svg { width: 15px; height: 15px; fill: #fff; flex-shrink: 0; }
-    .submit-note { font-size: 10px; color: #aaa; text-align: center; margin-top: 7px; }
+    .submit-note { font-size: 10px; color: #bbb; text-align: center; margin-top: 7px; line-height: 1.4; }
 
-    /* ══ LEAFLET POPUP CUSTOM ════════════════════════════════════════════════ */
-    .leaflet-popup-content-wrapper {
-      border-radius: 10px;
-      box-shadow: 0 4px 20px rgba(0,0,0,.18);
-      padding: 0; overflow: hidden;
-    }
-    .leaflet-popup-content { margin: 0; min-width: 220px; max-width: 280px; }
-    .leaflet-popup-close-button { top: 8px !important; right: 10px !important; font-size: 18px !important; color: #888 !important; }
-
-    .pop-head { background: var(--navy); color: #fff; padding: 12px 36px 12px 14px; }
-    .pop-ac   { font-size: 10px; opacity: .75; margin-bottom: 2px; }
-    .pop-name { font-size: 15px; font-weight: 700; line-height: 1.3; }
-    .pop-body { padding: 12px 14px; }
-    .pop-attrs { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 12px; }
-    .pop-attrs td { padding: 3px 0; vertical-align: top; }
-    .pop-attrs td:first-child { font-weight: 600; color: #555; width: 44%; padding-right: 8px; }
-    .pop-attrs td:last-child  { color: #222; }
-    .pop-nil { color: #bbb; font-style: italic; }
-
-    .report-btn {
-      display: block; width: 100%;
-      padding: 8px 12px; background: var(--red); color: #fff;
-      border: none; border-radius: 6px;
-      font-size: 12px; font-weight: 600; font-family: inherit;
-      cursor: pointer; text-align: center; transition: background .2s;
-    }
-    .report-btn:hover { background: var(--red-dk); }
-
-    /* ══ LEGEND ══════════════════════════════════════════════════════════════ */
-    #legend {
-      position: absolute; bottom: 12px; left: 10px;
-      z-index: 800; background: rgba(255,255,255,.93);
-      border-radius: 8px; padding: 10px 13px;
-      box-shadow: 0 2px 10px rgba(0,0,0,.15);
-      font-size: 11px;
-    }
-    .leg-title { font-weight: 700; color: #333; margin-bottom: 7px; font-size: 12px; }
-    .leg-row   { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
-    .leg-swatch {
-      width: 22px; height: 12px; border-radius: 3px; flex-shrink: 0;
-    }
-
-    /* ══ DISCLAIMER ══════════════════════════════════════════════════════════ */
-    #disclaimer {
+    /* ── Footer / Disclaimer ───────────────────────────────────── */
+    #footer {
       position: fixed; bottom: 0; left: 0; right: 0;
-      height: var(--footer-h);
-      z-index: 1000;
-      background: #f4f6f9;
-      border-top: 1px solid #dde;
-      padding: 0 14px;
-      display: flex; align-items: center;
-      font-size: 10.5px; color: #666; line-height: 1.45;
+      min-height: var(--footer-h);
+      background: var(--card);
+      border-top: 1px solid var(--border);
+      z-index: 1500;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px;
+      padding: 6px 16px;
+      font-size: 10.5px; color: #888; line-height: 1.5;
     }
-    #disclaimer a { color: var(--navy); text-decoration: none; }
-    #disclaimer a:hover { text-decoration: underline; }
+    #footer a { color: var(--teal); text-decoration: none; }
+    #footer a:hover { text-decoration: underline; }
+    #footer-credits {
+      flex-shrink: 0; white-space: nowrap;
+      font-size: 11px; color: #999;
+    }
+    #footer-credits .heart { color: #e63329; }
+    #footer-disclaimer { text-align: right; }
 
-    /* ══ MOBILE ══════════════════════════════════════════════════════════════ */
-    @media (max-width: 640px) {
-      :root { --header-h: 48px; --footer-h: 56px; }
-      #header h1  { font-size: 12px; }
-      #header img { height: 26px; }
+    /* ── Mobile overlay background ─────────────────────────────── */
+    #sidebar-overlay {
+      display: none;
+      position: fixed; inset: 0; z-index: 1100;
+      background: rgba(0,0,0,.3);
+    }
+
+    /* ── Mobile breakpoint ─────────────────────────────────────── */
+    @media (max-width: 767px) {
+      :root {
+        --header-h: 56px;
+        --sidebar-w: 0px;
+      }
+      #sidebar-toggle { display: flex; align-items: center; }
+      #sidebar {
+        width: 280px;
+        transform: translateX(-100%);
+        z-index: 1400;
+      }
+      #sidebar.open { transform: translateX(0); }
+      #sidebar-overlay.visible { display: block; }
+      #map { left: 0; }
       #report-panel { width: 100%; }
-      #legend { display: none; }
-      #disclaimer { font-size: 9.5px; }
+      .title-main { font-size: 18px; }
+      .title-sub { display: none; }
+      #footer { font-size: 9.5px; padding: 6px 10px; flex-direction: column; align-items: flex-start; gap: 2px; }
+      #footer-disclaimer { text-align: left; }
+      #footer-credits { white-space: normal; }
     }
   </style>
 </head>
 <body>
 
-<!-- ══ LOADING ══════════════════════════════════════════════════════════════ -->
+<!-- Rainbow stripe -->
+<div id="stripe"></div>
+
+<!-- Mobile sidebar overlay -->
+<div id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+<!-- Loading -->
 <div id="loading">
   <img id="loading-logo"
     src="https://commons.wikimedia.org/wiki/Special:FilePath/Open_Data_Kerala_logo.svg"
@@ -214,39 +486,110 @@
   <p>Loading Kerala Assembly Map…</p>
 </div>
 
-<!-- ══ HEADER ═══════════════════════════════════════════════════════════════ -->
+<!-- Header -->
 <div id="header">
-  <img src="https://commons.wikimedia.org/wiki/Special:FilePath/Open_Data_Kerala_logo.svg"
-       alt="Open Data Kerala" onerror="this.style.display='none'">
-  <h1>Kerala Legislative Assembly Map &mdash; Election 2026</h1>
-</div>
-
-<!-- ══ MAP ══════════════════════════════════════════════════════════════════ -->
-<div id="map">
-  <!-- Legend lives inside #map so it doesn't scroll with the page -->
-  <div id="legend">
-    <div class="leg-title">Legend</div>
-    <div class="leg-row">
-      <div class="leg-swatch" style="background:transparent;border:2.5px solid #111;"></div>
-      <span>Assembly Constituency</span>
-    </div>
-    <div class="leg-row">
-      <div class="leg-swatch" style="background:linear-gradient(90deg,#4e9af1 0%,#7ed321 50%,#f5a623 100%);"></div>
-      <span>Local Self-Government</span>
-    </div>
+  <img id="odk-logo"
+    src="https://commons.wikimedia.org/wiki/Special:FilePath/Open_Data_Kerala_logo.svg"
+    alt="Open Data Kerala"
+    onerror="this.style.display='none'; document.getElementById('odk-logo-fallback').style.display='block'">
+  <div id="odk-logo-fallback"></div>
+  <div id="header-title">
+    <div class="title-eyebrow">KERALA LEGISLATIVE ASSEMBLY</div>
+    <div class="title-main">Election 2026</div>
+    <div class="title-sub">Boundary Review Map &middot; 140 Constituencies &middot; 14 Districts &middot; an Open Data Kerala Initiative</div>
   </div>
+  <button id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle filter panel">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+      <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  </button>
 </div>
 
-<!-- ══ REPORT PANEL ══════════════════════════════════════════════════════════ -->
+<!-- Left Sidebar -->
+<aside id="sidebar">
+  <div id="sidebar-inner">
+
+    <!-- Navigate section -->
+    <div class="sidebar-section">
+      <div class="sidebar-heading">Navigate</div>
+
+      <div class="radio-group">
+        <label class="radio-label active" id="rb-district">
+          <input type="radio" name="nav-mode" value="district" checked onchange="onModeChange(this)">
+          District
+        </label>
+        <label class="radio-label" id="rb-constituency">
+          <input type="radio" name="nav-mode" value="constituency" onchange="onModeChange(this)">
+          Constituency
+        </label>
+      </div>
+
+      <div class="search-wrap">
+        <span class="search-icon">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="2.5" stroke-linecap="round">
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        </span>
+        <input type="text" id="nav-input" placeholder="Type to search…" autocomplete="off"
+          oninput="onSearchInput(this.value)"
+          onfocus="onSearchFocus()"
+          onkeydown="onSearchKey(event)">
+        <button id="nav-clear" onclick="clearNav()" title="Clear">✕</button>
+      </div>
+      <div id="nav-suggestions"></div>
+      <div id="selected-chip">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        <span id="chip-text"></span>
+        <button id="chip-clear" onclick="clearNav()" title="Clear selection">✕</button>
+      </div>
+    </div>
+
+    <hr class="sidebar-divider">
+
+    <!-- Legend section -->
+    <div>
+      <div class="sidebar-heading">Legend</div>
+      <div class="legend-row">
+        <div class="leg-swatch" style="background:transparent;border:2.5px solid #111;"></div>
+        <span class="leg-label">Assembly Constituency</span>
+        <button class="eye-btn" id="eye-ac" onclick="toggleLayer('ac')" title="Hide AC boundaries">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+      <div class="legend-row">
+        <div class="leg-swatch" style="background:linear-gradient(90deg,#4e9af1 0%,#7ed321 50%,#f5a623 100%);"></div>
+        <span class="leg-label">Local Self-Government (LSGI)</span>
+        <button class="eye-btn" id="eye-lsgi" onclick="toggleLayer('lsgi')" title="Hide LSGI layer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <div id="sidebar-footer">
+    <span id="sf-counts">Loading features…</span>
+  </div>
+</aside>
+
+<!-- Map -->
+<div id="map"></div>
+
+<!-- Report Panel -->
 <div id="report-panel" role="dialog" aria-modal="true" aria-label="Report a data error">
-  <div class="panel-head">
+  <div class="rp-head">
     <h2>⚠&nbsp; Report a Data Error</h2>
-    <button class="panel-close" onclick="closePanel()" aria-label="Close panel">✕</button>
+    <button class="rp-close" onclick="closePanel()" aria-label="Close">✕</button>
   </div>
-  <div class="panel-body">
-
+  <div class="rp-body">
     <div class="prefill-box">
-      <div class="box-label">📍 Location (auto-filled)</div>
+      <div class="prefill-label">📍 Location (auto-filled)</div>
       <div class="fg">
         <label>LSGI Name</label>
         <input type="text" id="f-lsgi" readonly placeholder="—">
@@ -263,37 +606,24 @@
 
     <p class="req-note">Fields marked <span class="req">*</span> are mandatory.</p>
 
-    <div class="fg">
-      <label>Your Name</label>
-      <input type="text" id="f-name" placeholder="Full name" autocomplete="name">
-    </div>
-    <div class="fg">
-      <label>Affiliation</label>
-      <input type="text" id="f-affil" placeholder="Organisation / Institution">
-    </div>
-    <div class="fg">
-      <label>Email <span class="req">*</span></label>
-      <input type="email" id="f-email" placeholder="you@example.com" autocomplete="email">
-    </div>
-    <div class="fg">
-      <label>Phone</label>
-      <input type="tel" id="f-phone" placeholder="+91 XXXXX XXXXX" autocomplete="tel">
-    </div>
+    <div class="fg"><label>Your Name</label>
+      <input type="text" id="f-name" placeholder="Full name" autocomplete="name"></div>
+    <div class="fg"><label>Affiliation</label>
+      <input type="text" id="f-affil" placeholder="Organisation / Institution"></div>
+    <div class="fg"><label>Email <span class="req">*</span></label>
+      <input type="email" id="f-email" placeholder="you@example.com" autocomplete="email"></div>
+    <div class="fg"><label>Phone</label>
+      <input type="tel" id="f-phone" placeholder="+91 XXXXX XXXXX" autocomplete="tel"></div>
 
     <hr class="div">
 
-    <div class="fg">
-      <label>Describe the Issue <span class="req">*</span></label>
-      <textarea id="f-issue" placeholder="What is wrong or missing? Please be as specific as possible…"></textarea>
-    </div>
-    <div class="fg">
-      <label>Supporting Links</label>
-      <textarea id="f-links" style="min-height:60px"
-        placeholder="Paste any reference URLs, gazette links, etc. — one per line"></textarea>
-    </div>
+    <div class="fg"><label>Describe the Issue <span class="req">*</span></label>
+      <textarea id="f-issue" placeholder="What is incorrect or missing? Please be specific…"></textarea></div>
+    <div class="fg"><label>Supporting Links</label>
+      <textarea id="f-links" style="min-height:58px"
+        placeholder="Reference URLs, gazette links — one per line"></textarea></div>
 
     <button class="submit-btn" onclick="submitReport()">
-      <!-- GitHub mark icon -->
       <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
         <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
                  0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
@@ -306,25 +636,33 @@
       </svg>
       Submit Issue on GitHub
     </button>
-    <p class="submit-note">You'll be redirected to GitHub to complete the submission. A GitHub account is required.</p>
+    <p class="submit-note">You'll be redirected to GitHub to complete the submission.<br>A GitHub account is required.</p>
   </div>
 </div>
 
-<!-- ══ DISCLAIMER ════════════════════════════════════════════════════════════ -->
-<div id="disclaimer">
-  <span>
-    ⚠ The accuracy or completeness of the data presented on this page cannot be guaranteed.
-    Information has been sourced from CEO Kerala, Gazette notifications, and official party media.
-    Found a mistake? <a href="https://github.com/opendatakerala/kerala-assembly-map/issues/new" target="_blank" rel="noopener">File an issue on GitHub</a>
+<!-- Footer / Disclaimer -->
+<footer id="footer">
+  <div id="footer-disclaimer">
+    <strong>Disclaimer:</strong> ⚠ Data accuracy cannot be guaranteed. Sourced and compiled from
+    CEO Kerala, Gazette notifications &amp; official party media,
+    <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>
+    and other open sources.
+    Found a mistake?
+    <a href="https://github.com/opendatakerala/kerala-assembly-map/issues/new" target="_blank" rel="noopener">File an issue</a>
     or email <a href="mailto:opendatakerala@gmail.com">opendatakerala@gmail.com</a>.
-  </span>
-</div>
+  </div>
+  <div id="footer-credits">
+    Made with <span class="heart">♥</span>
+    <a href="https://opendatakerala.org" target="_blank" rel="noopener">Open Data Kerala</a>,
+    <a href="https://wiki.openstreetmap.org/wiki/Kerala" target="_blank" rel="noopener">OSM Kerala</a>
+    &amp; <a href="https://geominds.in" target="_blank" rel="noopener">Geominds</a>
+  </div>
+</footer>
 
-<!-- ══ SCRIPTS ═══════════════════════════════════════════════════════════════ -->
 <script>
 'use strict';
 
-// ── Colour palette – hash LSG_code → consistent colour ───────────────────────
+// ── Colour palette (hash LSG_code → consistent colour) ──────────────────────
 const PALETTE = [
   '#4e9af1','#e8a838','#5cb85c','#9b59b6','#e55347',
   '#1abc9c','#f0892a','#2980b9','#8e44ad','#27ae60',
@@ -333,42 +671,71 @@ const PALETTE = [
   '#f1948a','#7dcea0','#85c1e9','#f0b27a','#82e0aa',
   '#aab7b8','#6c5ce7','#00cec9','#fd79a8','#fdcb6e'
 ];
-
 function lsgiColor(lsgCode) {
-  if (!lsgCode) return '#bfc9ca';
+  if (!lsgCode) return '#c0c9ca';
   let h = 5381;
-  for (let i = 0; i < lsgCode.length; i++) {
-    h = (((h << 5) + h) ^ lsgCode.charCodeAt(i)) >>> 0;
-  }
+  for (let i = 0; i < lsgCode.length; i++) h = (((h << 5) + h) ^ lsgCode.charCodeAt(i)) >>> 0;
   return PALETTE[h % PALETTE.length];
 }
 
-// ── Kerala bounds (WGS84) ─────────────────────────────────────────────────────
-const KERALA_SW = [8.17,  74.85];
-const KERALA_NE = [12.79, 77.65];
-const KERALA_BOUNDS = L.latLngBounds(KERALA_SW, KERALA_NE);
+// ── Kerala bounds ────────────────────────────────────────────────────────────
+const KERALA_BOUNDS = L.latLngBounds([[8.17, 74.85], [12.79, 77.65]]);
 
-// ── Map init ──────────────────────────────────────────────────────────────────
+// ── Map init ─────────────────────────────────────────────────────────────────
 const map = L.map('map', {
-  maxBounds:            KERALA_BOUNDS.pad(0.07),
-  maxBoundsViscosity:   1.0,
-  zoomSnap:             0.25,
-  zoomDelta:            0.5,
-  attributionControl:   true,
+  maxBounds:           KERALA_BOUNDS.pad(0.07),
+  maxBoundsViscosity:  1.0,
+  zoomSnap:            0.25,
+  zoomDelta:           0.5,
+  zoomControl:         false,   // we add it manually on the right
+  attributionControl:  true,
 });
+map.fitBounds(KERALA_BOUNDS, { animate: false });
 
-map.fitBounds(KERALA_BOUNDS);
+// Re-evaluate map size and minZoom once the CSS layout has settled (sidebar already in place)
+function _recalcMinZoom() {
+  map.invalidateSize(false);
+  const minZ = map.getBoundsZoom(KERALA_BOUNDS) - 0.25;
+  map.setMinZoom(minZ);
+  if (map.getZoom() < minZ) map.fitBounds(KERALA_BOUNDS, { animate: false });
+}
+setTimeout(_recalcMinZoom, 80);   // after first paint
 
-// After initial fit, lock that zoom as the minimum
-map.once('moveend', function () {
-  map.setMinZoom(Math.floor(map.getZoom() * 4) / 4);
-});
-
-// Re-lock on resize (orientation change on mobile)
 window.addEventListener('resize', () => {
-  const needed = map.getBoundsZoom(KERALA_BOUNDS);
-  if (map.getZoom() < needed) map.fitBounds(KERALA_BOUNDS, { animate: true });
+  _recalcMinZoom();
+  // Re-centre only if we're already at min zoom
+  if (map.getZoom() <= map.getMinZoom()) map.fitBounds(KERALA_BOUNDS, { animate: true });
 });
+
+// Remove the 🇺🇦 flag Leaflet adds to its attribution prefix (keep text only)
+map.attributionControl.setPrefix('<a href="https://leafletjs.com" title="A JavaScript library for interactive maps">Leaflet</a>');
+
+// Zoom control → top right
+L.control.zoom({ position: 'topright' }).addTo(map);
+
+// Recenter control → below zoom buttons, top right
+const RecenterControl = L.Control.extend({
+  options: { position: 'topright' },
+  onAdd(map) {
+    const div = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+    const a   = L.DomUtil.create('a',   'recenter-btn', div);
+    a.title = 'Re-centre to Kerala';
+    a.href  = '#';
+    a.setAttribute('role', 'button');
+    a.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
+        stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <line x1="12" y1="2" x2="12" y2="6"/>
+      <line x1="12" y1="18" x2="12" y2="22"/>
+      <line x1="2" y1="12" x2="6" y2="12"/>
+      <line x1="18" y1="12" x2="22" y2="12"/>
+    </svg>`;
+    L.DomEvent.on(a, 'click', L.DomEvent.stop)
+              .on(a, 'click', () => map.fitBounds(KERALA_BOUNDS, { animate: true }));
+    return div;
+  }
+});
+new RecenterControl().addTo(map);
 
 // OSM basemap
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -376,126 +743,289 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
 }).addTo(map);
 
-// ── Global state for popup ────────────────────────────────────────────────────
-let _activeProps = null;
+// ── Eye-icon SVGs ─────────────────────────────────────────────────────────────
+const SVG_EYE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+</svg>`;
+const SVG_EYE_OFF = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+  <line x1="1" y1="1" x2="23" y2="23"/>
+</svg>`;
+
+// ── Data stores ──────────────────────────────────────────────────────────────
+let _lsgiData    = null;
+let _acData      = null;
 let _lsgiLayer   = null;
+let _acLayer     = null;
+let _highlight   = null;    // current zoom-highlight layer
+let _activeProps = null;    // props for report panel
+let _lsgiVisible = true;
+let _acVisible   = true;
+
+// ── Layer toggle ──────────────────────────────────────────────────────────────
+function toggleLayer(which) {
+  if (which === 'lsgi') {
+    _lsgiVisible = !_lsgiVisible;
+    if (_lsgiLayer) {
+      if (_lsgiVisible) _lsgiLayer.addTo(map); else map.removeLayer(_lsgiLayer);
+    }
+    const btn = document.getElementById('eye-lsgi');
+    btn.innerHTML = _lsgiVisible ? SVG_EYE : SVG_EYE_OFF;
+    btn.classList.toggle('off', !_lsgiVisible);
+    btn.title = _lsgiVisible ? 'Hide LSGI layer' : 'Show LSGI layer';
+  } else {
+    _acVisible = !_acVisible;
+    if (_acLayer) {
+      if (_acVisible) _acLayer.addTo(map); else map.removeLayer(_acLayer);
+    }
+    const btn = document.getElementById('eye-ac');
+    btn.innerHTML = _acVisible ? SVG_EYE : SVG_EYE_OFF;
+    btn.classList.toggle('off', !_acVisible);
+    btn.title = _acVisible ? 'Hide AC boundaries' : 'Show AC boundaries';
+  }
+}
+
+let districts      = [];
+let constituencies = [];
+let _suggestIdx    = -1;  // keyboard nav index
+
+// ── Search / Navigate UI ─────────────────────────────────────────────────────
+function getMode() {
+  return document.querySelector('input[name="nav-mode"]:checked').value;
+}
+
+function onModeChange(radio) {
+  document.getElementById('rb-district').classList.toggle('active', radio.value === 'district');
+  document.getElementById('rb-constituency').classList.toggle('active', radio.value === 'constituency');
+  clearNav();
+  document.getElementById('nav-input').placeholder =
+    radio.value === 'district' ? 'Search district…' : 'Search constituency…';
+}
+
+function onSearchFocus() {
+  const val = document.getElementById('nav-input').value.trim();
+  showSuggestions(val);
+}
+
+function onSearchInput(val) {
+  document.getElementById('nav-clear').classList.toggle('visible', val.length > 0);
+  showSuggestions(val);
+}
+
+function showSuggestions(query) {
+  const list = getMode() === 'district' ? districts : constituencies;
+  const q    = query.trim().toLowerCase();
+  const matches = q
+    ? list.filter(s => s.toLowerCase().includes(q)).slice(0, 15)
+    : list.slice(0, 15);
+
+  const box = document.getElementById('nav-suggestions');
+  _suggestIdx = -1;
+
+  if (!matches.length) {
+    box.innerHTML = '<div class="sugg-empty">No results found</div>';
+    box.style.display = 'block';
+    return;
+  }
+
+  box.innerHTML = matches.map((item, i) => {
+    const hl = q ? item.replace(new RegExp(`(${q})`, 'gi'), '<mark>$1</mark>') : item;
+    return `<div class="sugg-item" data-val="${item.replace(/"/g,'&quot;')}"
+      onmousedown="selectItem('${item.replace(/'/g,"\\'")}'); return false;">${hl}</div>`;
+  }).join('');
+  box.style.display = 'block';
+}
+
+function onSearchKey(e) {
+  const box   = document.getElementById('nav-suggestions');
+  const items = box.querySelectorAll('.sugg-item');
+  if (!items.length) return;
+
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    _suggestIdx = Math.min(_suggestIdx + 1, items.length - 1);
+    items.forEach((el, i) => el.classList.toggle('active', i === _suggestIdx));
+    if (items[_suggestIdx]) items[_suggestIdx].scrollIntoView({ block: 'nearest' });
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    _suggestIdx = Math.max(_suggestIdx - 1, 0);
+    items.forEach((el, i) => el.classList.toggle('active', i === _suggestIdx));
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (_suggestIdx >= 0 && items[_suggestIdx]) {
+      selectItem(items[_suggestIdx].dataset.val);
+    } else if (items[0]) {
+      selectItem(items[0].dataset.val);
+    }
+  } else if (e.key === 'Escape') {
+    hideSuggestions();
+  }
+}
+
+function selectItem(name) {
+  document.getElementById('nav-input').value = name;
+  hideSuggestions();
+  document.getElementById('nav-clear').classList.add('visible');
+
+  // Show selected chip
+  const chip = document.getElementById('selected-chip');
+  document.getElementById('chip-text').textContent = name;
+  chip.classList.add('visible');
+
+  // Zoom
+  if (getMode() === 'district') zoomToDistrict(name);
+  else zoomToConstituency(name);
+}
+
+function hideSuggestions() {
+  document.getElementById('nav-suggestions').style.display = 'none';
+  _suggestIdx = -1;
+}
+
+function clearNav() {
+  document.getElementById('nav-input').value = '';
+  document.getElementById('nav-clear').classList.remove('visible');
+  document.getElementById('selected-chip').classList.remove('visible');
+  hideSuggestions();
+  if (_highlight) { map.removeLayer(_highlight); _highlight = null; }
+}
+
+// Hide suggestions on map click
+document.getElementById('map').addEventListener('mousedown', function (e) {
+  if (!e.target.closest('#nav-suggestions')) hideSuggestions();
+});
+document.addEventListener('click', function (e) {
+  if (!e.target.closest('#sidebar')) hideSuggestions();
+});
+
+// ── Zoom-to helpers ───────────────────────────────────────────────────────────
+function zoomToDistrict(name) {
+  if (!_lsgiData) return;
+  if (_highlight) { map.removeLayer(_highlight); _highlight = null; }
+  const feats = _lsgiData.features.filter(f => (f.properties || {}).District === name);
+  if (!feats.length) return;
+  _highlight = L.geoJSON(
+    { type: 'FeatureCollection', features: feats },
+    { style: { color: '#1b4dbf', weight: 2.5, fillOpacity: 0, opacity: 1, dashArray: '6 4' }, interactive: false }
+  ).addTo(map);
+  map.fitBounds(_highlight.getBounds(), { padding: [30, 50], animate: true });
+}
+
+function zoomToConstituency(name) {
+  if (!_acData) return;
+  if (_highlight) { map.removeLayer(_highlight); _highlight = null; }
+  const feats = _acData.features.filter(f => (f.properties || {}).AC_NAME === name);
+  if (!feats.length) return;
+  _highlight = L.geoJSON(
+    { type: 'FeatureCollection', features: feats },
+    { style: { color: '#e63329', weight: 3, fillColor: '#e63329', fillOpacity: 0.08, opacity: 1 }, interactive: false }
+  ).addTo(map);
+  map.fitBounds(_highlight.getBounds(), { padding: [30, 50], animate: true });
+}
 
 // ── Popup builder ─────────────────────────────────────────────────────────────
 function fv(v) {
-  return (v === null || v === undefined || v === '') ?
-    '<span class="pop-nil">—</span>' : String(v);
+  return (v === null || v === undefined || v === '') ? '<span class="pop-nil">—</span>' : String(v);
 }
 
 function buildPopup(p) {
   const rows = [
-    ['District',     p['District']],
-    ['Type',         p['Lsgd_Type']],
-    ['English Label',p['English Label']],
-    ['SEC Code',     p['SEC_Kerala_code']],
-    ['LSG Code',     p['LSG_code']],
-    ['Wards',        p['Ward_count']],
-    ['AC No.',       p['AC_NO']],
-    ['PC Name',      p['PC_NAME']],
-    ['PC No.',       p['PC_NO']],
+    ['District',    p['District']],
+    ['Type',        p['Lsgd_Type']],
+    ['English',     p['English Label']],
+    ['SEC Code',    p['SEC_Kerala_code']],
+    ['LSG Code',    p['LSG_code']],
+    ['Wards',       p['Ward_count']],
+    ['AC No.',      p['AC_NO']],
+    ['PC',          p['PC_NAME']],
   ].map(([l,v]) => `<tr><td>${l}</td><td>${fv(v)}</td></tr>`).join('');
-
-  const acName   = fv(p['AC_NAME']);
-  const lsgName  = p['LSGD'] || p['English Label'] || 'Unknown';
 
   return `
     <div class="pop-head">
-      <div class="pop-ac">Assembly Constituency: ${acName}</div>
-      <div class="pop-name">${lsgName}</div>
+      <div class="pop-eyebrow">Assembly Constituency: ${fv(p['AC_NAME'])}</div>
+      <div class="pop-name">${p['LSGD'] || p['English Label'] || 'Unknown'}</div>
     </div>
     <div class="pop-body">
-      <table class="pop-attrs">${rows}</table>
+      <table class="pop-table">${rows}</table>
       <button class="report-btn" onclick="openReport()">⚠ Report Error</button>
     </div>`;
 }
 
 // ── LSGI layer ────────────────────────────────────────────────────────────────
-function styleLSGI(feat) {
-  return {
-    fillColor:   lsgiColor((feat.properties || {})['LSG_code']),
-    fillOpacity: 0.55,
-    color:       '#fff',
-    weight:      0.7,
-    opacity:     1,
-  };
-}
-
 function onEachLSGI(feat, layer) {
-  const p = feat.properties || {};
+  const p       = feat.properties || {};
   const lsgName = p['LSGD'] || p['English Label'] || '?';
   const acName  = p['AC_NAME'] || '—';
 
-  // Hover tooltip
   layer.bindTooltip(
-    `<strong>${lsgName}</strong><br><small style="color:#aaa">AC: ${acName}</small>`,
+    `<strong>${lsgName}</strong><br><span style="color:#aaa;font-size:11px">AC: ${acName}</span>`,
     { sticky: true, direction: 'top', offset: [0, -6] }
   );
 
-  // Click → popup
   layer.on('click', function (e) {
     _activeProps = p;
-    const popup = L.popup({ maxWidth: 300, className: '' })
+    L.popup({ maxWidth: 300 })
       .setLatLng(e.latlng)
-      .setContent(buildPopup(p));
-    popup.openOn(map);
+      .setContent(buildPopup(p))
+      .openOn(map);
   });
 
-  // Hover highlight
   layer.on('mouseover', function () {
     layer.setStyle({ fillOpacity: 0.78, weight: 1.5, color: '#555' });
     layer.bringToFront();
-    // keep AC outlines on top
     if (_acLayer) _acLayer.bringToFront();
+    if (_highlight) _highlight.bringToFront();
   });
-  layer.on('mouseout', function () {
-    _lsgiLayer.resetStyle(layer);
-  });
+  layer.on('mouseout', function () { _lsgiLayer.resetStyle(layer); });
 }
 
-// ── AC layer (hollow) ─────────────────────────────────────────────────────────
-let _acLayer = null;
-
-const AC_STYLE = {
-  fillOpacity: 0,
-  color:       '#111',
-  weight:      2.0,
-  opacity:     1,
-};
-
-// ── Load data ─────────────────────────────────────────────────────────────────
+// ── Load GeoJSON data ─────────────────────────────────────────────────────────
 Promise.all([
-  fetch('LSGI_2025.geojson').then(r => { if (!r.ok) throw new Error('LSGI_2025.geojson not found'); return r.json(); }),
-  fetch('KLA_AC_2026.geojson').then(r => { if (!r.ok) throw new Error('KLA_AC_2026.geojson not found'); return r.json(); }),
+  fetch('LSGI_2025.geojson').then(r => { if (!r.ok) throw new Error('LSGI_2025.geojson — ' + r.status); return r.json(); }),
+  fetch('KLA_AC_2026.geojson').then(r => { if (!r.ok) throw new Error('KLA_AC_2026.geojson — ' + r.status); return r.json(); }),
 ]).then(([lsgiData, acData]) => {
 
-  // Add LSGI below
+  _lsgiData = lsgiData;
+  _acData   = acData;
+
+  // Build filter lists
+  districts = [...new Set(lsgiData.features.map(f => (f.properties || {}).District).filter(Boolean))].sort();
+  constituencies = [...new Set(acData.features.map(f => (f.properties || {}).AC_NAME).filter(Boolean))].sort();
+
+  // LSGI layer (below)
   _lsgiLayer = L.geoJSON(lsgiData, {
-    style:          styleLSGI,
-    onEachFeature:  onEachLSGI,
+    style(feat) {
+      return {
+        fillColor:   lsgiColor((feat.properties || {})['LSG_code']),
+        fillOpacity: 0.55,
+        color:       '#fff',
+        weight:      0.6,
+        opacity:     1,
+      };
+    },
+    onEachFeature: onEachLSGI,
   }).addTo(map);
 
-  // Add AC outlines above (non-interactive so events pass to LSGI)
+  // AC outlines (above, non-interactive)
   _acLayer = L.geoJSON(acData, {
-    style:       AC_STYLE,
+    style: { fillOpacity: 0, color: '#111', weight: 2.0, opacity: 1 },
     interactive: false,
   }).addTo(map);
+
+  // Update sidebar footer
+  document.getElementById('sf-counts').textContent =
+    `${lsgiData.features.length} LSGIs · ${acData.features.length} Constituencies`;
 
   document.getElementById('loading').style.display = 'none';
 
 }).catch(err => {
   document.getElementById('loading').innerHTML = `
-    <p style="color:#c0392b;font-size:13px;text-align:center;padding:0 24px;">
-      ⚠ Could not load map data.<br><br>
-      <code style="font-size:11px">${err.message}</code><br><br>
-      Make sure <strong>LSGI_2025.geojson</strong> and
-      <strong>KLA_AC_2026.geojson</strong> are in the same folder as this HTML file
-      and being served via a web server (not opened directly from the filesystem).
-    </p>`;
-  console.error(err);
+    <div style="text-align:center;padding:0 28px">
+      <p style="color:#d93025;font-size:14px;font-weight:600;margin-bottom:8px">⚠ Could not load map data</p>
+      <p style="font-size:12px;color:#888;margin-bottom:12px">${err.message}</p>
+      <p style="font-size:11px;color:#aaa">Make sure <strong>LSGI_2025.geojson</strong> and
+      <strong>KLA_AC_2026.geojson</strong> are in the same folder and served via a web server.</p>
+    </div>`;
 });
 
 // ── Report Panel ──────────────────────────────────────────────────────────────
@@ -505,9 +1035,9 @@ function openReport() {
   document.getElementById('f-lsgi').value  = p['LSGD'] || p['English Label'] || '';
   document.getElementById('f-code').value  = p['LSG_code'] || '';
   document.getElementById('f-ac').value    = p['AC_NAME'] || '';
-  // Clear user-fillable fields
-  ['f-name','f-affil','f-email','f-phone','f-issue','f-links']
-    .forEach(id => { document.getElementById(id).value = ''; });
+  ['f-name','f-affil','f-email','f-phone','f-issue','f-links'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
   document.getElementById('report-panel').classList.add('open');
   document.getElementById('f-name').focus();
 }
@@ -519,7 +1049,7 @@ function closePanel() {
 function submitReport() {
   const email = document.getElementById('f-email').value.trim();
   const issue = document.getElementById('f-issue').value.trim();
-  if (!email) { alert('Please enter your email address — it is mandatory.'); return; }
+  if (!email) { alert('Email is mandatory.'); return; }
   if (!issue) { alert('Please describe the issue.'); return; }
 
   const lsgi  = document.getElementById('f-lsgi').value;
@@ -531,20 +1061,17 @@ function submitReport() {
   const links = document.getElementById('f-links').value.trim();
 
   const title = `Data Error: ${lsgi || ac || 'Unknown location'}`;
-
-  const body = [
+  const body  = [
     '## Data Error Report',
     '',
     '### 📍 Location',
-    '| Field | Value |',
-    '|---|---|',
+    '| Field | Value |', '|---|---|',
     `| **LSGI Name** | ${lsgi || '—'} |`,
     `| **LSGI Code** | ${code || '—'} |`,
     `| **Assembly Constituency** | ${ac || '—'} |`,
     '',
     '### 👤 Reporter',
-    '| Field | Value |',
-    '|---|---|',
+    '| Field | Value |', '|---|---|',
     `| **Name** | ${name || '—'} |`,
     `| **Affiliation** | ${affil || '—'} |`,
     `| **Email** | ${email} |`,
@@ -557,19 +1084,34 @@ function submitReport() {
     '',
     '---',
     '*Reported via [Kerala Assembly Map 2026](https://opendatakerala.github.io/kerala-assembly-map/)*',
-  ].filter(l => l !== undefined).join('\n');
+  ].join('\n');
 
-  const ghUrl = 'https://github.com/opendatakerala/kerala-assembly-map/issues/new'
-    + '?title=' + encodeURIComponent(title)
-    + '&body='  + encodeURIComponent(body)
-    + '&labels=' + encodeURIComponent('data-error,needs-review');
-
-  window.open(ghUrl, '_blank', 'noopener,noreferrer');
+  window.open(
+    'https://github.com/opendatakerala/kerala-assembly-map/issues/new'
+      + '?title=' + encodeURIComponent(title)
+      + '&body='  + encodeURIComponent(body)
+      + '&labels=' + encodeURIComponent('data-error,needs-review'),
+    '_blank', 'noopener,noreferrer'
+  );
 }
 
-// Close panel on Escape key
-document.addEventListener('keydown', function (e) {
-  if (e.key === 'Escape') closePanel();
+// ── Mobile sidebar ────────────────────────────────────────────────────────────
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  const open = sb.classList.toggle('open');
+  ov.classList.toggle('visible', open);
+  // After CSS transition finishes, recalculate map size and minZoom
+  setTimeout(_recalcMinZoom, 320);
+}
+function closeSidebar() {
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-overlay').classList.remove('visible');
+}
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closePanel(); closeSidebar(); hideSuggestions(); }
 });
 </script>
 </body>
