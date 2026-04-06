@@ -21,7 +21,7 @@
       --stripe-h:  5px;
       --header-h:  68px;
       --sidebar-w: 264px;
-      --footer-h:  42px;
+      --footer-h:  52px;
       --teal:      #0d9e8f;
       --amber:     #c8921e;
       --navy:      #1a2e4a;
@@ -97,10 +97,28 @@
       text-overflow: ellipsis;
     }
 
+    /* "Also from ODK" header links */
+    #header-ext {
+      display: flex; flex-direction: column; align-items: flex-end;
+      gap: 4px; flex-shrink: 0;
+    }
+    .header-ext-label {
+      font-size: 9px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1.2px; color: #aaa;
+    }
+    .header-ext-btns { display: flex; gap: 6px; }
+    .header-ext-btn {
+      display: inline-block; padding: 4px 11px;
+      border: 1px solid var(--border); border-radius: 4px;
+      font-size: 11px; font-weight: 500; white-space: nowrap;
+      color: var(--navy); text-decoration: none; background: var(--bg);
+      transition: border-color .15s, color .15s, background .15s;
+    }
+    .header-ext-btn:hover { border-color: var(--teal); color: var(--teal); background: #f0faf9; }
+
     /* Mobile sidebar toggle button (hidden on desktop) */
     #sidebar-toggle {
       display: none;
-      margin-left: auto;
       background: none; border: 1px solid var(--border);
       border-radius: 6px; padding: 6px 10px;
       font-size: 16px; cursor: pointer; color: var(--navy);
@@ -243,6 +261,21 @@
 
     /* Sidebar divider */
     .sidebar-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+
+    /* How-to steps */
+    .how-to-list {
+      list-style: none; padding: 0; margin: 0;
+    }
+    .how-to-list li {
+      display: flex; gap: 10px; align-items: flex-start;
+      font-size: 12px; color: #666; line-height: 1.5;
+      margin-bottom: 10px;
+    }
+    .how-to-list li:last-child { margin-bottom: 0; }
+    .how-to-step-icon {
+      font-size: 14px; flex-shrink: 0; width: 20px; text-align: center; margin-top: 1px;
+    }
+    .how-to-list strong { color: var(--navy); }
 
     /* Legend */
     .legend-row {
@@ -433,10 +466,10 @@
     #footer a:hover { text-decoration: underline; }
     #footer-credits {
       flex-shrink: 0; white-space: nowrap;
-      font-size: 11px; color: #999;
+      font-size: 11px; color: #999; text-align: right;
     }
     #footer-credits .heart { color: #e63329; }
-    #footer-disclaimer { text-align: right; }
+    #footer-disclaimer { text-align: left; flex: 1; }
 
     /* ── Mobile overlay background ─────────────────────────────── */
     #sidebar-overlay {
@@ -451,6 +484,7 @@
         --header-h: 56px;
         --sidebar-w: 0px;
       }
+      #header-ext { display: none; }
       #sidebar-toggle { display: flex; align-items: center; }
       #sidebar {
         width: 280px;
@@ -498,6 +532,14 @@
     <div class="title-main">Election 2026</div>
     <div class="title-sub">Boundary Review Map &middot; 140 Constituencies &middot; 14 Districts &middot; an Open Data Kerala Initiative</div>
   </div>
+  <div id="header-ext">
+    <span class="header-ext-label">Also from ODK</span>
+    <div class="header-ext-btns">
+      <a href="https://mlatrack.com/" target="_blank" rel="noopener" class="header-ext-btn">MLA Track</a>
+      <a href="https://opendatakerala.org/LSG2025/" target="_blank" rel="noopener" class="header-ext-btn">LSG Election Portal</a>
+    </div>
+  </div>
+
   <button id="sidebar-toggle" onclick="toggleSidebar()" aria-label="Toggle filter panel">
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
       <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
@@ -573,6 +615,37 @@
 
   </div>
 
+    <hr class="sidebar-divider">
+
+    <!-- How to use -->
+    <div>
+      <div class="sidebar-heading">How to use</div>
+      <ol class="how-to-list">
+        <li>
+          <span class="how-to-step-icon">🔍</span>
+          <span>Zoom into your area using <strong>+ / −</strong> or scroll</span>
+        </li>
+        <li>
+          <span class="how-to-step-icon">🖱</span>
+          <span>Hover over any coloured area to see the <strong>LSGI</strong> and <strong>Constituency</strong> name</span>
+        </li>
+        <li>
+          <span class="how-to-step-icon">👆</span>
+          <span>Click a boundary to view full details — district, type, ward count and codes</span>
+        </li>
+        <li>
+          <span class="how-to-step-icon">⚠</span>
+          <span>Spot an error? Click the area → tap <strong>Report Error</strong> → submit on GitHub</span>
+        </li>
+        <li>
+          <span class="how-to-step-icon">🗺</span>
+          <span>Use the <strong>Navigate</strong> panel above to zoom straight to any district or constituency</span>
+        </li>
+      </ol>
+    </div>
+
+  </div><!-- /sidebar-inner -->
+
   <div id="sidebar-footer">
     <span id="sf-counts">Loading features…</span>
   </div>
@@ -646,7 +719,7 @@
     <strong>Disclaimer:</strong> ⚠ Data accuracy cannot be guaranteed. Sourced and compiled from
     CEO Kerala, Gazette notifications &amp; official party media,
     <a href="https://www.openstreetmap.org" target="_blank" rel="noopener">OpenStreetMap</a>
-    and other open sources.
+    and other open sources.<br>
     Found a mistake?
     <a href="https://github.com/opendatakerala/kerala-assembly-map/issues/new" target="_blank" rel="noopener">File an issue</a>
     or email <a href="mailto:opendatakerala@gmail.com">opendatakerala@gmail.com</a>.
@@ -951,16 +1024,56 @@ function buildPopup(p) {
     </div>`;
 }
 
+// ── Shared tooltip (one instance for all LSGI layers) ────────────────────────
+// Root cause of Chrome stacking bug: bindTooltip({ sticky:true }) creates a
+// separate tooltip per layer. Chrome fires mouseover on the NEW layer BEFORE
+// mouseout on the OLD one, so two tooltips open simultaneously. Firefox fires
+// them in the opposite order, hence no bug there.
+// Fix: one shared L.tooltip — updated on hover, hidden on leave with a small
+// guarded delay so rapid layer transitions don't cause a flicker.
+const _lsgiTip    = L.tooltip({ direction: 'top', offset: [0, -10], opacity: 0.95 });
+let _tipVisible   = false;
+let _hideTipTimer = null;
+let _hoveredLayer = null;   // tracks which layer currently "owns" the tooltip
+
+function _showTip(html, latlng, owner) {
+  clearTimeout(_hideTipTimer);
+  _hoveredLayer = owner;
+  _lsgiTip.setContent(html).setLatLng(latlng);
+  if (!_tipVisible) { _lsgiTip.addTo(map); _tipVisible = true; }
+}
+function _moveTip(latlng) {
+  if (_tipVisible) _lsgiTip.setLatLng(latlng);
+}
+function _hideTip(owner) {
+  // Only schedule a hide if this layer still owns the tooltip
+  _hideTipTimer = setTimeout(() => {
+    if (_hoveredLayer === owner) {
+      if (_tipVisible) { map.removeLayer(_lsgiTip); _tipVisible = false; }
+      _hoveredLayer = null;
+    }
+  }, 40);   // 40 ms window: enough for Chrome's event-order difference
+}
+
 // ── LSGI layer ────────────────────────────────────────────────────────────────
 function onEachLSGI(feat, layer) {
   const p       = feat.properties || {};
   const lsgName = p['LSGD'] || p['English Label'] || '?';
   const acName  = p['AC_NAME'] || '—';
+  const tipHtml = `<strong>${lsgName}</strong><br><span style="color:#aaa;font-size:11px">AC: ${acName}</span>`;
 
-  layer.bindTooltip(
-    `<strong>${lsgName}</strong><br><span style="color:#aaa;font-size:11px">AC: ${acName}</span>`,
-    { sticky: true, direction: 'top', offset: [0, -6] }
-  );
+  layer.on('mouseover', function (e) {
+    _showTip(tipHtml, e.latlng, layer);
+    layer.setStyle({ fillOpacity: 0.78, weight: 1.5, color: '#555' });
+    layer.bringToFront();
+    if (_acLayer)    _acLayer.bringToFront();
+    if (_highlight)  _highlight.bringToFront();
+  });
+  layer.on('mousemove', function (e) { _moveTip(e.latlng); });
+  layer.on('mouseout',  function ()  {
+    _hideTip(layer);
+    _lsgiLayer.resetStyle(layer);
+  });
 
   layer.on('click', function (e) {
     _activeProps = p;
@@ -969,14 +1082,6 @@ function onEachLSGI(feat, layer) {
       .setContent(buildPopup(p))
       .openOn(map);
   });
-
-  layer.on('mouseover', function () {
-    layer.setStyle({ fillOpacity: 0.78, weight: 1.5, color: '#555' });
-    layer.bringToFront();
-    if (_acLayer) _acLayer.bringToFront();
-    if (_highlight) _highlight.bringToFront();
-  });
-  layer.on('mouseout', function () { _lsgiLayer.resetStyle(layer); });
 }
 
 // ── Load GeoJSON data ─────────────────────────────────────────────────────────
