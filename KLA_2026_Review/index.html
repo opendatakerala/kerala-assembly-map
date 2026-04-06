@@ -284,6 +284,15 @@
     }
     .leg-swatch { width: 26px; height: 14px; border-radius: 3px; flex-shrink: 0; }
     .leg-label  { flex: 1; }
+    .legend-simplify-note {
+      margin-top: 8px;
+      font-size: 10.5px; line-height: 1.45;
+      color: #888;
+      background: #faf8f2;
+      border-left: 3px solid var(--amber);
+      padding: 5px 8px;
+      border-radius: 0 4px 4px 0;
+    }
     .eye-btn {
       background: none; border: none; cursor: pointer; padding: 3px;
       color: #aaa; flex-shrink: 0; display: flex; align-items: center;
@@ -614,6 +623,10 @@
           </svg>
         </button>
       </div>
+      <p class="legend-simplify-note">
+        ⚠ Boundaries are geometry-simplified for faster loading.
+        Thin gaps between areas are a display artefact and do not reflect actual boundary positions.
+      </p>
     </div>
 
   </div>
