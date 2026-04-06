@@ -440,13 +440,15 @@
 
     .submit-btn {
       width: 100%; padding: 11px;
-      background: var(--navy); color: #fff;
+      background: var(--teal); color: #fff;
       border: none; border-radius: 8px;
       font-size: 13px; font-weight: 600; font-family: inherit;
       cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
       transition: background .15s; margin-top: 6px;
     }
-    .submit-btn:hover { background: #243c5a; }
+    .submit-btn:hover { background: #0b8a7c; }
+    .submit-btn.gh  { background: var(--navy); margin-top: 6px; }
+    .submit-btn.gh:hover { background: #243c5a; }
     .submit-btn svg { width: 15px; height: 15px; fill: #fff; flex-shrink: 0; }
     .submit-note { font-size: 10px; color: #bbb; text-align: center; margin-top: 7px; line-height: 1.4; }
 
@@ -648,7 +650,8 @@
   </div><!-- /sidebar-inner -->
 
   <div id="sidebar-footer">
-    <span id="sf-counts">Loading features…</span>
+    <span id="sf-counts">Loading features…</span><br>
+    Visits: <span id="visit-count">—</span>
   </div>
 </aside>
 
@@ -697,7 +700,14 @@
       <textarea id="f-links" style="min-height:58px"
         placeholder="Reference URLs, gazette links — one per line"></textarea></div>
 
-    <button class="submit-btn" onclick="submitReport()">
+    <button class="submit-btn" onclick="submitGoogleForm()">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9
+                 2-2V6c0-1.1-.9-2-2-2zm0 4-8 5-8-5V6l8 5 8-5v2z"/>
+      </svg>
+      Submit via Google Form
+    </button>
+    <button class="submit-btn gh" onclick="submitReport()">
       <svg viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
         <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
                  0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13
@@ -710,7 +720,7 @@
       </svg>
       Submit Issue on GitHub
     </button>
-    <p class="submit-note">You'll be redirected to GitHub to complete the submission.<br>A GitHub account is required.</p>
+    <p class="submit-note" id="gf-note">Google Form submits silently from this page.<br>GitHub requires a GitHub account.</p>
   </div>
 </div>
 
@@ -1152,6 +1162,50 @@ function closePanel() {
   document.getElementById('report-panel').classList.remove('open');
 }
 
+// ── Google Form silent POST ────────────────────────────────────────────────────
+const GF_ENDPOINT = 'https://docs.google.com/forms/d/e/1FAIpQLSeiqRw3ZQ3_pbt94m7jd-DkW1x8-cSqpcxw5owjQ_dtKFJ5Fw/formResponse';
+const GF_PREFILL  = 'https://docs.google.com/forms/d/e/1FAIpQLSeiqRw3ZQ3_pbt94m7jd-DkW1x8-cSqpcxw5owjQ_dtKFJ5Fw/viewform?usp=pp_url';
+
+function submitGoogleForm() {
+  const email = document.getElementById('f-email').value.trim();
+  const issue = document.getElementById('f-issue').value.trim();
+  if (!email) { alert('Email is mandatory.'); return; }
+  if (!issue) { alert('Please describe the issue.'); return; }
+
+  const fields = {
+    'entry.912349118': document.getElementById('f-lsgi').value.trim(),
+    'entry.867575376': document.getElementById('f-code').value.trim(),
+    'entry.1036779456': document.getElementById('f-ac').value.trim(),
+    'entry.305164811':  document.getElementById('f-name').value.trim(),
+    'entry.306057419':  document.getElementById('f-affil').value.trim(),
+    'entry.804100173':  email,
+    'entry.1414699712': document.getElementById('f-phone').value.trim(),
+    'entry.1012670959': issue,
+    'entry.2060652520': document.getElementById('f-links').value.trim(),
+  };
+
+  const fd = new FormData();
+  Object.entries(fields).forEach(([k, v]) => { if (v) fd.append(k, v); });
+
+  const note = document.getElementById('gf-note');
+
+  // Silent POST — always opaque (no-cors), treat as success
+  fetch(GF_ENDPOINT, { method: 'POST', mode: 'no-cors', body: fd })
+    .then(() => {
+      note.innerHTML = '✅ Submitted! Thank you for your report.';
+      note.style.color = '#2e8b44';
+      setTimeout(closePanel, 2800);
+    })
+    .catch(() => {
+      // Fetch failed (offline?) — open pre-fill fallback
+      const params = Object.entries(fields)
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+        .join('&');
+      window.open(GF_PREFILL + '&' + params, '_blank', 'noopener,noreferrer');
+    });
+}
+
 function submitReport() {
   const email = document.getElementById('f-email').value.trim();
   const issue = document.getElementById('f-issue').value.trim();
@@ -1215,10 +1269,27 @@ function closeSidebar() {
   document.getElementById('sidebar-overlay').classList.remove('visible');
 }
 
+// ── Visit counter ─────────────────────────────────────────────────────────────
+(function() {
+  const STORE_KEY   = 'kla2026_visits';
+  const SESSION_KEY = 'kla2026_session';
+  // Only count once per browser session
+  if (!sessionStorage.getItem(SESSION_KEY)) {
+    sessionStorage.setItem(SESSION_KEY, '1');
+    const prev = parseInt(localStorage.getItem(STORE_KEY) || '0', 10);
+    localStorage.setItem(STORE_KEY, prev + 1);
+  }
+  const total = parseInt(localStorage.getItem(STORE_KEY) || '1', 10);
+  const el = document.getElementById('visit-count');
+  if (el) el.textContent = total.toLocaleString();
+})();
+
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closePanel(); closeSidebar(); hideSuggestions(); }
 });
 </script>
+<script data-goatcounter="https://kla2026.goatcounter.com/count"
+        async src="//gc.zgo.at/count.js"></script>
 </body>
 </html>
