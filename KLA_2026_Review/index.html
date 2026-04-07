@@ -714,8 +714,7 @@
   </div><!-- /sidebar-inner -->
 
   <div id="sidebar-footer">
-    <span id="sf-counts">Loading features…</span><br>
-    Visits: <span id="visit-count">—</span>
+    <span id="sf-counts">Loading features…</span>
   </div>
 </aside>
 
@@ -1485,20 +1484,6 @@ if (!localStorage.getItem(TOUR_KEY)) {
   window.addEventListener('load', () => setTimeout(startTour, 1400));
 }
 
-// ── Visit counter ─────────────────────────────────────────────────────────────
-(function() {
-  const STORE_KEY   = 'kla2026_visits';
-  const SESSION_KEY = 'kla2026_session';
-  // Only count once per browser session
-  if (!sessionStorage.getItem(SESSION_KEY)) {
-    sessionStorage.setItem(SESSION_KEY, '1');
-    const prev = parseInt(localStorage.getItem(STORE_KEY) || '0', 10);
-    localStorage.setItem(STORE_KEY, prev + 1);
-  }
-  const total = parseInt(localStorage.getItem(STORE_KEY) || '1', 10);
-  const el = document.getElementById('visit-count');
-  if (el) el.textContent = total.toLocaleString();
-})();
 
 // Keyboard shortcuts
 document.addEventListener('keydown', e => {
