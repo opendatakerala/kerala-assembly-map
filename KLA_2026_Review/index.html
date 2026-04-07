@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
   <title>Kerala Assembly Map 2026 · Open Data Kerala</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <style>
     /* ── Reset & Base ──────────────────────────────────────────── */
@@ -512,6 +513,56 @@
       #footer-disclaimer { text-align: left; }
       #footer-credits { white-space: normal; }
     }
+
+    /* ── Tour FAB (floating ? button) ─────────────────────────────── */
+    #tour-fab {
+      position: fixed;
+      bottom: 58px; right: 12px;
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: var(--teal); color: #fff;
+      border: 2px solid rgba(255,255,255,.35);
+      font-size: 15px; font-weight: 700;
+      cursor: pointer; z-index: 1600;
+      box-shadow: 0 2px 8px rgba(0,0,0,.28);
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+      transition: background .15s, transform .1s;
+    }
+    #tour-fab:hover { background: #0b8a7c; transform: scale(1.08); }
+    #tour-fab title { display: none; }
+
+    /* ── Custom tour (SVG cutout + tooltip) ────────────────────────── */
+    #tour-svg {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      z-index: 9998; pointer-events: none;
+    }
+    #tour-tip {
+      position: fixed; z-index: 9999;
+      background: #fff; border-radius: 10px;
+      padding: 14px 16px 12px;
+      max-width: 260px; min-width: 200px;
+      box-shadow: 0 6px 24px rgba(0,0,0,.22);
+      font-family: inherit;
+    }
+    .tt-progress { font-size: 11px; color: #aaa; margin-bottom: 4px; }
+    .tt-title    { font-size: 13px; font-weight: 700; color: #1a2e4a; margin-bottom: 6px; }
+    .tt-body     { font-size: 12px; color: #555; line-height: 1.55; }
+    .tt-footer   {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-top: 12px;
+    }
+    #tt-skip { background: none; border: none; font-size: 11px; color: #bbb; cursor: pointer; padding: 0; }
+    #tt-skip:hover { color: #888; }
+    .tt-nav  { display: flex; gap: 6px; }
+    #tt-prev, #tt-next {
+      padding: 5px 11px; border-radius: 6px; font-size: 12px;
+      border: 1px solid #ddd; cursor: pointer; background: #f5f5f5; color: #333;
+    }
+    #tt-next { background: #0d9e8f; border-color: #0d9e8f; color: #fff; }
+    #tt-next:hover { background: #0b8a7c; }
+    #tt-prev:hover { background: #eee; }
   </style>
 </head>
 <body>
@@ -564,7 +615,7 @@
   <div id="sidebar-inner">
 
     <!-- Navigate section -->
-    <div class="sidebar-section">
+    <div class="sidebar-section" id="nav-section">
       <div class="sidebar-heading">Navigate</div>
 
       <div class="radio-group">
@@ -603,7 +654,7 @@
     <hr class="sidebar-divider">
 
     <!-- Legend section -->
-    <div>
+    <div id="legend-section">
       <div class="sidebar-heading">Legend</div>
       <div class="legend-row">
         <div class="leg-swatch" style="background:transparent;border:2.5px solid #111;"></div>
@@ -623,7 +674,7 @@
           </svg>
         </button>
       </div>
-      <p class="legend-simplify-note">
+      <p class="legend-simplify-note" id="simplify-note">
         ⚠ Boundaries are geometry-simplified for faster loading.
         Thin gaps between areas are a display artefact and do not reflect actual boundary positions.
       </p>
@@ -634,7 +685,7 @@
     <hr class="sidebar-divider">
 
     <!-- How to use -->
-    <div>
+    <div id="howto-section">
       <div class="sidebar-heading">How to use</div>
       <ol class="how-to-list">
         <li>
@@ -734,6 +785,28 @@
       Submit Issue on GitHub
     </button>
     <p class="submit-note" id="gf-note">Google Form submits silently from this page.<br>GitHub requires a GitHub account.</p>
+  </div>
+</div>
+
+<!-- Tour replay button -->
+<button id="tour-fab" onclick="localStorage.removeItem('kla2026_tour_v1'); startTour();" aria-label="Take a guided tour">?</button>
+
+<!-- Tour: SVG cutout overlay -->
+<svg id="tour-svg" aria-hidden="true" style="display:none">
+  <path fill="rgba(0,0,0,0.68)" fill-rule="evenodd" d=""/>
+</svg>
+
+<!-- Tour: floating tooltip -->
+<div id="tour-tip" style="display:none">
+  <div class="tt-progress"></div>
+  <div class="tt-title"></div>
+  <div class="tt-body"></div>
+  <div class="tt-footer">
+    <button id="tt-skip"  onclick="tourSkip()">Skip</button>
+    <div class="tt-nav">
+      <button id="tt-prev" onclick="tourPrev()">← Back</button>
+      <button id="tt-next" onclick="tourNext()">Next →</button>
+    </div>
   </div>
 </div>
 
@@ -1282,6 +1355,136 @@ function closeSidebar() {
   document.getElementById('sidebar-overlay').classList.remove('visible');
 }
 
+// ── Custom SVG-cutout guided tour (no CDN dependency) ─────────────────────────
+const TOUR_KEY = 'kla2026_tour_v1';
+const TOUR_PAD = 7;   // padding around highlighted element (px)
+
+const TOUR_STEPS = [
+  { el:'#nav-section',      prefer:'right',
+    title:'🗺 Navigate to any area',
+    body:'Switch between <b>District</b> and <b>Constituency</b> modes, then type to search. The map zooms to your selection instantly.' },
+  { el:'#legend-section',   prefer:'right',
+    title:'🎨 Map Legend',
+    body:'Coloured areas are <b>LSGIs</b> (local body wards). Bold outlines mark <b>Assembly Constituencies</b>. Use the 👁 eye icon to toggle either layer.' },
+  { el:'#simplify-note',    prefer:'right',
+    title:'⚠ About the gaps',
+    body:'Boundaries are simplified for fast loading. Thin gaps between areas are a <b>display artefact</b> — not missing territory.' },
+  { el:'#howto-section',    prefer:'right',
+    title:'📖 How to use',
+    body:'Zoom in, hover to identify LSGIs, click for full details, and use <b>Report Error</b> to flag data issues.' },
+  { el:'#header-ext',       prefer:'bottom',
+    title:'🔗 Also from ODK',
+    body:'Quick links to the <b>KLA-26 Election Portal</b> and <b>MLA Track</b> — more tools from Open Data Kerala.' },
+  { el:'#footer-disclaimer',prefer:'top',
+    title:'📋 Disclaimer',
+    body:'Important notes on data accuracy. Spot an error? Use <b>Report Error</b> or email the team.' },
+  { el:'#tour-fab',         prefer:'left',
+    title:'❓ Replay this tour',
+    body:'Click the <b>?</b> button any time to run through this walkthrough again.' },
+];
+
+let _tStep = 0;
+let _tSbWasClosed = false;
+
+function startTour() {
+  const sb = document.getElementById('sidebar');
+  const ov = document.getElementById('sidebar-overlay');
+  _tSbWasClosed = !sb.classList.contains('open');
+  if (_tSbWasClosed) { sb.classList.add('open'); ov.classList.add('visible'); }
+  // Wait for sidebar CSS transition before measuring
+  setTimeout(() => _tourGo(0), 350);
+}
+
+function _tourGo(i) {
+  _tStep = i;
+  if (i >= TOUR_STEPS.length) { _tourEnd(); return; }
+  const step = TOUR_STEPS[i];
+  const el = document.querySelector(step.el);
+  if (!el) { _tourGo(i + 1); return; }
+  // Scroll element into view inside its scroll container
+  el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  // Allow scroll to settle, then draw
+  setTimeout(() => _tourDraw(i, el, step), 200);
+}
+
+function _tourDraw(i, el, step) {
+  const rect = el.getBoundingClientRect();
+  const vw = window.innerWidth, vh = window.innerHeight;
+  const p = TOUR_PAD, r = 6; // padding and corner radius
+
+  // ── SVG cutout ──────────────────────────────────────────────────
+  const svg = document.getElementById('tour-svg');
+  svg.setAttribute('width', vw); svg.setAttribute('height', vh);
+  svg.setAttribute('viewBox', `0 0 ${vw} ${vh}`);
+  const hx = Math.max(0, rect.left - p),   hy = Math.max(0, rect.top - p);
+  const hw = Math.min(rect.width  + p*2, vw - hx);
+  const hh = Math.min(rect.height + p*2, vh - hy);
+  // Outer filled rect  +  inner rounded-rect hole (evenodd rule → transparent)
+  svg.querySelector('path').setAttribute('d',
+    `M0,0 H${vw} V${vh} H0 Z ` +
+    `M${hx+r},${hy} H${hx+hw-r} Q${hx+hw},${hy} ${hx+hw},${hy+r} ` +
+    `V${hy+hh-r} Q${hx+hw},${hy+hh} ${hx+hw-r},${hy+hh} ` +
+    `H${hx+r} Q${hx},${hy+hh} ${hx},${hy+hh-r} ` +
+    `V${hy+r} Q${hx},${hy} ${hx+r},${hy} Z`
+  );
+  svg.style.display = 'block';
+
+  // ── Tooltip content ─────────────────────────────────────────────
+  const tip = document.getElementById('tour-tip');
+  tip.querySelector('.tt-progress').textContent = `${i+1} / ${TOUR_STEPS.length}`;
+  tip.querySelector('.tt-title').textContent    = step.title;
+  tip.querySelector('.tt-body').innerHTML       = step.body;
+  document.getElementById('tt-prev').style.visibility = i === 0 ? 'hidden' : 'visible';
+  document.getElementById('tt-next').textContent = i === TOUR_STEPS.length-1 ? 'Done ✓' : 'Next →';
+  tip.style.display = 'block';
+
+  // ── Tooltip position ────────────────────────────────────────────
+  const ttW = tip.offsetWidth || 240, ttH = tip.offsetHeight || 140, m = 14;
+  let tx = 0, ty = 0, placed = false;
+  const order = [step.prefer,'right','left','bottom','top'].filter(Boolean);
+  for (const side of order) {
+    if (side==='right'  && rect.right  + m + ttW <= vw) { tx=rect.right+m;       ty=rect.top+rect.height/2-ttH/2; placed=true; break; }
+    if (side==='left'   && rect.left   - m - ttW >= 0)  { tx=rect.left-m-ttW;    ty=rect.top+rect.height/2-ttH/2; placed=true; break; }
+    if (side==='bottom' && rect.bottom + m + ttH <= vh)  { ty=rect.bottom+m;      tx=rect.left+rect.width/2-ttW/2;  placed=true; break; }
+    if (side==='top'    && rect.top    - m - ttH >= 0)   { ty=rect.top-m-ttH;     tx=rect.left+rect.width/2-ttW/2;  placed=true; break; }
+  }
+  if (!placed) { // fallback: centre below or centre of screen
+    ty = Math.min(rect.bottom+m, vh-ttH-8);
+    tx = rect.left+rect.width/2-ttW/2;
+  }
+  tip.style.left = Math.max(8, Math.min(tx, vw-ttW-8)) + 'px';
+  tip.style.top  = Math.max(8, Math.min(ty, vh-ttH-8)) + 'px';
+}
+
+function _tourEnd() {
+  document.getElementById('tour-svg').style.display = 'none';
+  document.getElementById('tour-tip').style.display = 'none';
+  localStorage.setItem(TOUR_KEY, '1');
+  if (_tSbWasClosed) {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('sidebar-overlay').classList.remove('visible');
+    setTimeout(_recalcMinZoom, 320);
+  }
+}
+
+function tourNext() { _tStep < TOUR_STEPS.length-1 ? _tourGo(_tStep+1) : _tourEnd(); }
+function tourPrev() { if (_tStep > 0) _tourGo(_tStep-1); }
+function tourSkip() { _tourEnd(); }
+
+// Keyboard: arrow keys + Escape during tour
+document.addEventListener('keydown', e => {
+  if (document.getElementById('tour-tip').style.display !== 'none') {
+    if (e.key === 'ArrowRight') tourNext();
+    if (e.key === 'ArrowLeft')  tourPrev();
+    if (e.key === 'Escape')     tourSkip();
+  }
+});
+
+// Auto-start on first-ever visit (localStorage persists across sessions)
+if (!localStorage.getItem(TOUR_KEY)) {
+  window.addEventListener('load', () => setTimeout(startTour, 1400));
+}
+
 // ── Visit counter ─────────────────────────────────────────────────────────────
 (function() {
   const STORE_KEY   = 'kla2026_visits';
@@ -1302,6 +1505,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { closePanel(); closeSidebar(); hideSuggestions(); }
 });
 </script>
+
 <script data-goatcounter="https://kla2026.goatcounter.com/count"
         async src="//gc.zgo.at/count.js"></script>
 </body>
