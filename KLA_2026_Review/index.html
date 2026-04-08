@@ -532,6 +532,111 @@
     #tour-fab:hover { background: #0b8a7c; transform: scale(1.08); }
     #tour-fab title { display: none; }
 
+    /* ── Report FAB (floating red button, mobile-primary) ──────────── */
+    #report-fab {
+      position: fixed;
+      bottom: 104px; right: 12px;   /* sits just above #tour-fab */
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      background: var(--red); color: #fff;
+      border: 2px solid rgba(255,255,255,.35);
+      font-size: 17px; font-weight: 700;
+      cursor: pointer; z-index: 1600;
+      box-shadow: 0 2px 8px rgba(0,0,0,.28);
+      display: flex; align-items: center; justify-content: center;
+      line-height: 1;
+      transition: background .15s, transform .1s;
+    }
+    #report-fab:hover { background: #b8271f; transform: scale(1.08); }
+
+    /* ── Mobile bottom sheet ────────────────────────────────────────── */
+    /* z-index 1510 puts the sheet above the footer (1500) and header (1500)
+       so it slides over them on small screens.  Backdrop at 1505 catches
+       taps on the footer / rest of the screen to close the sheet. */
+    #bs-backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      z-index: 1505;
+    }
+    #bs-backdrop.visible { display: block; }
+
+    #bottom-sheet {
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      background: var(--card);
+      border-radius: 16px 16px 0 0;
+      box-shadow: 0 -4px 32px rgba(0,0,0,.22);
+      z-index: 1510;
+      transform: translateY(100%);
+      transition: transform .3s cubic-bezier(.4,0,.2,1);
+      max-height: 70vh;
+      overflow-y: auto;
+      /* extra bottom padding: clears the home-bar on iOS/Android */
+      padding-bottom: env(safe-area-inset-bottom, 8px);
+    }
+    #bottom-sheet.open { transform: translateY(0); }
+
+    #bs-handle {
+      width: 36px; height: 4px;
+      border-radius: 2px;
+      background: #ccc;
+      margin: 10px auto 0;
+    }
+
+    .bs-head {
+      display: flex; align-items: flex-start;
+      justify-content: space-between;
+      padding: 10px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    /* AC name — prominent chip above the LSGI title */
+    .bs-ac-chip {
+      display: inline-block;
+      background: var(--teal);
+      color: #fff;
+      font-size: 11px; font-weight: 700;
+      letter-spacing: .6px;
+      border-radius: 4px;
+      padding: 2px 7px;
+      margin-bottom: 5px;
+    }
+    .bs-name {
+      font-size: 19px; font-weight: 700;
+      color: var(--navy); line-height: 1.25;
+    }
+    .bs-close {
+      flex-shrink: 0;
+      background: none; border: none;
+      font-size: 24px; line-height: 1;
+      color: #999; cursor: pointer;
+      padding: 0 0 0 12px;
+    }
+    .bs-body { padding: 10px 16px 14px; }
+
+    /* 4-column table: label | value | label | value
+       For paired rows (LSG+SEC, Wards+AC No.).
+       Single-value rows use colspan=3 on the value cell. */
+    .bs-table {
+      width: 100%; border-collapse: collapse;
+      font-size: 13px; margin-bottom: 14px;
+    }
+    .bs-table td {
+      padding: 5px 4px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .bs-table .bl {              /* label cell */
+      color: #999; font-size: 11px;
+      text-transform: uppercase; letter-spacing: .4px;
+      white-space: nowrap; padding-right: 6px;
+      width: 1%;                 /* shrink to content */
+    }
+    .bs-table .bv {              /* value cell */
+      font-weight: 600; color: var(--navy);
+      padding-right: 12px;       /* gap before next label */
+    }
+    .bs-table .bv:last-child { padding-right: 0; }
+
     /* ── Custom tour (SVG cutout + tooltip) ────────────────────────── */
     #tour-svg {
       position: fixed; inset: 0;
@@ -788,8 +893,28 @@
   </div>
 </div>
 
+<!-- Report Error FAB (red, always visible, primarily for mobile) -->
+<button id="report-fab" onclick="openReport()" aria-label="Report a data error" title="Report a data error">⚠</button>
+
 <!-- Tour replay button -->
 <button id="tour-fab" onclick="localStorage.removeItem('kla2026_tour_v1'); startTour();" aria-label="Take a guided tour">?</button>
+
+<!-- Mobile bottom sheet (tap-a-feature info panel) -->
+<div id="bs-backdrop" onclick="hideBottomSheet()" aria-hidden="true"></div>
+<div id="bottom-sheet" role="dialog" aria-modal="true" aria-label="LSGI details" aria-hidden="true">
+  <div id="bs-handle"></div>
+  <div class="bs-head">
+    <div>
+      <div id="bs-ac" class="bs-ac-chip"></div>
+      <div id="bs-name" class="bs-name"></div>
+    </div>
+    <button class="bs-close" onclick="hideBottomSheet()" aria-label="Close">×</button>
+  </div>
+  <div class="bs-body">
+    <table class="bs-table" id="bs-table"></table>
+    <button class="report-btn" onclick="openReport()">⚠ Report Error</button>
+  </div>
+</div>
 
 <!-- Tour: SVG cutout overlay -->
 <svg id="tour-svg" aria-hidden="true" style="display:none">
@@ -859,10 +984,10 @@ const map = L.map('map', {
   zoomDelta:           0.5,
   zoomControl:         false,   // we add it manually on the right
   attributionControl:  true,
-  tap:                 false,   // let browser native touch fire real click events on layers
-                                // (Leaflet's tap:true fires synthetic clicks on the map
-                                //  container, bypassing individual GeoJSON layer handlers
-                                //  in Chromium-based mobile browsers)
+  tap:                 false,   // disable Leaflet's own tap shim; browser fires native click
+                                // events on SVG layers directly (works on Firefox + desktop
+                                // Chrome).  Mobile Chrome uses the bottom sheet path via
+                                // native touchend listeners, so no popup-on-tap needed.
 });
 map.fitBounds(KERALA_BOUNDS, { animate: false });
 
@@ -886,6 +1011,14 @@ map.attributionControl.setPrefix('<a href="https://leafletjs.com" title="A JavaS
 
 // Zoom control → top right
 L.control.zoom({ position: 'topright' }).addTo(map);
+
+// ── AC pane: sits above the default overlayPane (z 400) so outlines render
+// on top of LSGI fills, but pointer-events:none on the pane container means
+// AC paths can NEVER intercept clicks/taps — they always fall through to the
+// LSGI layer below.  This fixes the "popup only works with AC layer off" bug.
+map.createPane('acPane');
+map.getPane('acPane').style.zIndex        = '401';
+map.getPane('acPane').style.pointerEvents = 'none';
 
 // Recenter control → below zoom buttons, top right
 const RecenterControl = L.Control.extend({
@@ -931,9 +1064,9 @@ let _lsgiData    = null;
 let _acData      = null;
 let _lsgiLayer   = null;
 let _acLayer     = null;
-let _highlight    = null;    // current zoom-highlight layer
-let _activeProps  = null;    // props for report panel
-let _styledLayer  = null;    // layer currently carrying hover style (reset on next hover/click)
+let _highlight        = null;    // current zoom-highlight layer
+let _activeProps      = null;    // props for report panel
+let _styledLayer      = null;    // layer currently carrying hover style (reset on next hover/click)
 let _lsgiVisible = true;
 let _acVisible   = true;
 
@@ -1181,42 +1314,92 @@ function onEachLSGI(feat, layer) {
     if (_styledLayer === layer) _styledLayer = null;
   });
 
-  // ── Touch: Chromium mobile fires touchend reliably; use it as primary path ──
+  // ── Touch → mobile bottom sheet ───────────────────────────────────────────────
+  // On touch devices (primarily Chrome mobile) we bypass Leaflet popups entirely
+  // and show a slide-up bottom sheet instead.  This avoids all the synthesised-
+  // click / closePopupOnClick race conditions that make popups unreliable on
+  // Chromium mobile.  Native DOM addEventListener with passive:false ensures
+  // preventDefault() reliably suppresses the browser's subsequent synthesised click
+  // (so the Leaflet click handler below doesn't also fire after a tap).
   let _touchHandled = false, _touchTimer;
-  layer.on('touchend', function (e) {
-    const orig = e.originalEvent;
-    if (orig.touches.length > 0) return;          // still touching — multi-touch gesture
-    // Stop the browser from synthesising a click event after touchend.
-    // Without this, the synthetic click reaches the map ~0 ms later and
-    // Leaflet's closePopupOnClick immediately closes the popup we just opened.
-    orig.preventDefault();
-    _touchHandled = true;
-    clearTimeout(_touchTimer);
-    _touchTimer = setTimeout(() => { _touchHandled = false; }, 500);
-    // Derive latlng from the touch position
-    const cr    = map.getContainer().getBoundingClientRect();
-    const t     = orig.changedTouches[0];
-    const latlng = map.containerPointToLatLng(L.point(t.clientX - cr.left, t.clientY - cr.top));
-    _doFeatureClick(latlng, p);
+
+  layer.on('add', function () {
+    const path = layer.getElement();
+    if (!path) return;
+    path.addEventListener('touchend', function (e) {
+      if (e.touches.length > 0) return;   // multi-touch (pinch/zoom) → ignore
+      e.preventDefault();                  // suppress synthesised click
+      e.stopPropagation();                 // stop touchend bubbling
+      _touchHandled = true;
+      clearTimeout(_touchTimer);
+      _touchTimer = setTimeout(() => { _touchHandled = false; }, 600);
+      _doFeatureTap(p);                    // show bottom sheet
+    }, { passive: false });
   });
 
-  // ── Click: desktop + browsers where native click reaches the layer ──────────
+  // ── Click → desktop Leaflet popup ─────────────────────────────────────────────
+  // Fires on genuine mouse clicks (desktop).  Skipped on touch because
+  // _touchHandled is true and preventDefault() suppressed the synthesised click.
   layer.on('click', function (e) {
-    if (_touchHandled) return;   // touchend already handled this tap
+    L.DomEvent.stopPropagation(e);   // stop click reaching map → prevents closePopupOnClick
+    if (_touchHandled) return;        // touch already handled via bottom sheet
     _doFeatureClick(e.latlng, p);
   });
 }
 
+// ── Desktop popup (mouse click) ───────────────────────────────────────────────
 function _doFeatureClick(latlng, p) {
   _activeProps = p;
-  // Reset any lingering hover style (mouseout may not have fired on mobile)
   if (_styledLayer) { _lsgiLayer.resetStyle(_styledLayer); _styledLayer = null; }
-  // Dismiss any hover tooltip so it doesn't float over the popup
-  if (_tipVisible) { map.removeLayer(_lsgiTip); _tipVisible = false; _hoveredLayer = null; }
+  if (_tipVisible)  { map.removeLayer(_lsgiTip); _tipVisible = false; _hoveredLayer = null; }
   L.popup({ maxWidth: 300 })
     .setLatLng(latlng)
     .setContent(buildPopup(p))
     .openOn(map);
+}
+
+// ── Mobile bottom sheet (touch tap) ──────────────────────────────────────────
+function _doFeatureTap(p) {
+  _activeProps = p;
+  if (_styledLayer) { _lsgiLayer.resetStyle(_styledLayer); _styledLayer = null; }
+  if (_tipVisible)  { map.removeLayer(_lsgiTip); _tipVisible = false; _hoveredLayer = null; }
+
+  // AC chip (prominent coloured badge above the LSGI name)
+  document.getElementById('bs-ac').textContent   = p['AC_NAME'] || '—';
+  document.getElementById('bs-name').textContent = p['LSGD'] || p['English Label'] || 'Unknown';
+
+  // Paired-column table rows:
+  //   Full-width rows: District, Type, English name, PC
+  //   Paired rows:     LSG Code + SEC Code  |  Wards + AC No.
+  const full = (label, val) =>
+    `<tr><td class="bl">${label}</td><td class="bv" colspan="3">${fv(val)}</td></tr>`;
+  const pair = (l1, v1, l2, v2) =>
+    `<tr><td class="bl">${l1}</td><td class="bv">${fv(v1)}</td>`+
+        `<td class="bl">${l2}</td><td class="bv">${fv(v2)}</td></tr>`;
+
+  document.getElementById('bs-table').innerHTML =
+    full('District', p['District']) +
+    full('Type',     p['Lsgd_Type']) +
+    full('English',  p['English Label']) +
+    pair('LSG Code', p['LSG_code'], 'SEC Code', p['SEC_Kerala_code']) +
+    pair('Wards',    p['Ward_count'], 'AC No.',  p['AC_NO']) +
+    full('PC',       p['PC_NAME']);
+
+  showBottomSheet();
+}
+
+function showBottomSheet() {
+  document.getElementById('bs-backdrop').classList.add('visible');
+  const sheet = document.getElementById('bottom-sheet');
+  sheet.classList.add('open');
+  sheet.setAttribute('aria-hidden', 'false');
+}
+
+function hideBottomSheet() {
+  document.getElementById('bs-backdrop').classList.remove('visible');
+  const sheet = document.getElementById('bottom-sheet');
+  sheet.classList.remove('open');
+  sheet.setAttribute('aria-hidden', 'true');
 }
 
 // ── Load GeoJSON data ─────────────────────────────────────────────────────────
@@ -1246,8 +1429,9 @@ Promise.all([
     onEachFeature: onEachLSGI,
   }).addTo(map);
 
-  // AC outlines (above, non-interactive)
+  // AC outlines — rendered in acPane (pointer-events:none at pane level)
   _acLayer = L.geoJSON(acData, {
+    pane:  'acPane',
     style: { fillOpacity: 0, color: '#111', weight: 2.0, opacity: 1 },
     interactive: false,
   }).addTo(map);
@@ -1290,6 +1474,7 @@ Promise.all([
 function openReport() {
   const p = _activeProps || {};
   map.closePopup();
+  hideBottomSheet();
   document.getElementById('f-lsgi').value  = p['LSGD'] || p['English Label'] || '';
   document.getElementById('f-code').value  = p['LSG_code'] || '';
   document.getElementById('f-ac').value    = p['AC_NAME'] || '';
