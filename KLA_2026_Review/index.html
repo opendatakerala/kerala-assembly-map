@@ -858,6 +858,10 @@ const map = L.map('map', {
   zoomDelta:           0.5,
   zoomControl:         false,   // we add it manually on the right
   attributionControl:  true,
+  tap:                 false,   // let browser native touch fire real click events on layers
+                                // (Leaflet's tap:true fires synthetic clicks on the map
+                                //  container, bypassing individual GeoJSON layer handlers
+                                //  in Chromium-based mobile browsers)
 });
 map.fitBounds(KERALA_BOUNDS, { animate: false });
 
@@ -1171,13 +1175,36 @@ function onEachLSGI(feat, layer) {
     _lsgiLayer.resetStyle(layer);
   });
 
-  layer.on('click', function (e) {
-    _activeProps = p;
-    L.popup({ maxWidth: 300 })
-      .setLatLng(e.latlng)
-      .setContent(buildPopup(p))
-      .openOn(map);
+  // ── Touch: Chromium mobile fires touchend reliably; use it as primary path ──
+  let _touchHandled = false, _touchTimer;
+  layer.on('touchend', function (e) {
+    const orig = e.originalEvent;
+    if (orig.touches.length > 0) return;          // still touching — multi-touch gesture
+    _touchHandled = true;
+    clearTimeout(_touchTimer);
+    _touchTimer = setTimeout(() => { _touchHandled = false; }, 500);
+    // Derive latlng from the touch position
+    const cr    = map.getContainer().getBoundingClientRect();
+    const t     = orig.changedTouches[0];
+    const latlng = map.containerPointToLatLng(L.point(t.clientX - cr.left, t.clientY - cr.top));
+    _doFeatureClick(latlng, p);
   });
+
+  // ── Click: desktop + browsers where native click reaches the layer ──────────
+  layer.on('click', function (e) {
+    if (_touchHandled) return;   // touchend already handled this tap
+    _doFeatureClick(e.latlng, p);
+  });
+}
+
+function _doFeatureClick(latlng, p) {
+  _activeProps = p;
+  // Dismiss any hover tooltip so it doesn't float over the popup
+  if (_tipVisible) { map.removeLayer(_lsgiTip); _tipVisible = false; _hoveredLayer = null; }
+  L.popup({ maxWidth: 300 })
+    .setLatLng(latlng)
+    .setContent(buildPopup(p))
+    .openOn(map);
 }
 
 // ── Load GeoJSON data ─────────────────────────────────────────────────────────
