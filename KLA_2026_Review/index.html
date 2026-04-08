@@ -714,7 +714,8 @@
   </div><!-- /sidebar-inner -->
 
   <div id="sidebar-footer">
-    <span id="sf-counts">Loading features…</span>
+    <span id="sf-counts">Loading features…</span><br>
+    <span id="sf-updated" style="opacity:.7">Updated: —</span>
   </div>
 </aside>
 
@@ -930,8 +931,9 @@ let _lsgiData    = null;
 let _acData      = null;
 let _lsgiLayer   = null;
 let _acLayer     = null;
-let _highlight   = null;    // current zoom-highlight layer
-let _activeProps = null;    // props for report panel
+let _highlight    = null;    // current zoom-highlight layer
+let _activeProps  = null;    // props for report panel
+let _styledLayer  = null;    // layer currently carrying hover style (reset on next hover/click)
 let _lsgiVisible = true;
 let _acVisible   = true;
 
@@ -1163,6 +1165,9 @@ function onEachLSGI(feat, layer) {
   const tipHtml = `<strong>${lsgName}</strong><br><span style="color:#aaa;font-size:11px">AC: ${acName}</span>`;
 
   layer.on('mouseover', function (e) {
+    // Reset whichever layer was previously styled (guards against mouseout not firing on mobile)
+    if (_styledLayer && _styledLayer !== layer) { _lsgiLayer.resetStyle(_styledLayer); }
+    _styledLayer = layer;
     _showTip(tipHtml, e.latlng, layer);
     layer.setStyle({ fillOpacity: 0.78, weight: 1.5, color: '#555' });
     layer.bringToFront();
@@ -1173,6 +1178,7 @@ function onEachLSGI(feat, layer) {
   layer.on('mouseout',  function ()  {
     _hideTip(layer);
     _lsgiLayer.resetStyle(layer);
+    if (_styledLayer === layer) _styledLayer = null;
   });
 
   // ── Touch: Chromium mobile fires touchend reliably; use it as primary path ──
@@ -1180,6 +1186,10 @@ function onEachLSGI(feat, layer) {
   layer.on('touchend', function (e) {
     const orig = e.originalEvent;
     if (orig.touches.length > 0) return;          // still touching — multi-touch gesture
+    // Stop the browser from synthesising a click event after touchend.
+    // Without this, the synthetic click reaches the map ~0 ms later and
+    // Leaflet's closePopupOnClick immediately closes the popup we just opened.
+    orig.preventDefault();
     _touchHandled = true;
     clearTimeout(_touchTimer);
     _touchTimer = setTimeout(() => { _touchHandled = false; }, 500);
@@ -1199,6 +1209,8 @@ function onEachLSGI(feat, layer) {
 
 function _doFeatureClick(latlng, p) {
   _activeProps = p;
+  // Reset any lingering hover style (mouseout may not have fired on mobile)
+  if (_styledLayer) { _lsgiLayer.resetStyle(_styledLayer); _styledLayer = null; }
   // Dismiss any hover tooltip so it doesn't float over the popup
   if (_tipVisible) { map.removeLayer(_lsgiTip); _tipVisible = false; _hoveredLayer = null; }
   L.popup({ maxWidth: 300 })
@@ -1240,9 +1252,27 @@ Promise.all([
     interactive: false,
   }).addTo(map);
 
-  // Update sidebar footer
+  // Update sidebar footer — feature count
   document.getElementById('sf-counts').textContent =
     `${lsgiData.features.length} LSGIs & wards · ${acData.features.length} Constituencies`;
+
+  // Last-updated: pull latest commit timestamp from GitHub API
+  fetch('https://api.github.com/repos/opendatakerala/kerala-assembly-map/commits?per_page=1')
+    .then(r => r.json())
+    .then(data => {
+      const raw = data[0]?.commit?.committer?.date;
+      if (!raw) return;
+      const d   = new Date(raw);
+      const IST = { timeZone: 'Asia/Kolkata' };
+      const hhmm = d.toLocaleTimeString('en-GB', { ...IST, hour: '2-digit', minute: '2-digit', hour12: false });
+      const dmy  = d.toLocaleDateString('en-GB',  { ...IST, day: '2-digit', month: 'short', year: '2-digit' });
+      const el = document.getElementById('sf-updated');
+      if (el) el.textContent = `Updated on: ${hhmm}, ${dmy}`;
+    })
+    .catch(() => {
+      const el = document.getElementById('sf-updated');
+      if (el) el.style.display = 'none';   // hide silently if API unreachable
+    });
 
   document.getElementById('loading').style.display = 'none';
 
