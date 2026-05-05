@@ -1443,7 +1443,7 @@ function hideBottomSheet() {
 // ── Load GeoJSON data ─────────────────────────────────────────────────────────
 Promise.all([
   fetch('LSGI_2025.geojson').then(r => { if (!r.ok) throw new Error('LSGI_2025.geojson — ' + r.status); return r.json(); }),
-  fetch('KLA_AC_2026.geojson').then(r => { if (!r.ok) throw new Error('KLA_AC_2026.geojson — ' + r.status); return r.json(); }),
+  fetch('KLA_AC_2026_V2.geojson').then(r => { if (!r.ok) throw new Error('KLA_AC_2026_V2.geojson — ' + r.status); return r.json(); }),
 ]).then(([lsgiData, acData]) => {
 
   _lsgiData = lsgiData;
@@ -1504,7 +1504,7 @@ Promise.all([
       <p style="color:#d93025;font-size:14px;font-weight:600;margin-bottom:8px">⚠ Could not load map data</p>
       <p style="font-size:12px;color:#888;margin-bottom:12px">${err.message}</p>
       <p style="font-size:11px;color:#aaa">Make sure <strong>LSGI_2025.geojson</strong> and
-      <strong>KLA_AC_2026.geojson</strong> are in the same folder and served via a web server.</p>
+      <strong>KLA_AC_2026_V2.geojson</strong> are in the same folder and served via a web server.</p>
     </div>`;
 });
 
